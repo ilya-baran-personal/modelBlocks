@@ -20,6 +20,7 @@ classdef var
             if nargin == 5
                 description = '';
             end
+            checkType(name, 'char', 'name');
             if isempty(regexp(name, '^[a-zA-Z_][a-zA-Z_0-9]*$'))
                 error (['Name must start with a letter and be alphanumeric.  Invalid: ', name]);
             end

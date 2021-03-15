@@ -12,7 +12,7 @@ myVars = vars(varList)
 
 assertEqual(3, myVars.cats);
 assertEqual(2, myVars.dogs);
-assertEqual([3, 2, 3], myVars.values);
+assertEqual([3; 2; 3], myVars.values);
 assertEqual(2, myVars.variables{2}.value);
 assertEqual('kilograms', myVars.catFood.units);
 myVars.catFood = 2.5;

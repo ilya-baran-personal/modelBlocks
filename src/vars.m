@@ -27,9 +27,7 @@ classdef vars
         end
         
         function v = addVariable(v, var)
-            if (~isa(var, 'var'))
-                error ('Cannot call addVariable with something that is not a var');
-            end
+            checkType(var, 'var', 'input to addVariable');
             if (isfield(v.variableToIndex, var.name))
                 error (['Duplicate variable name ', var.name]);
             end
@@ -82,9 +80,9 @@ classdef vars
                     else
                         switch (field)
                             case 'values'
-                                r = zeros(1, v.n);
+                                r = zeros(v.n, 1);
                                 for i = 1:v.n
-                                    r(1, i) = v.variables{i}.value;
+                                    r(i, 1) = v.variables{i}.value;
                                 end
                             case 'variables'
                                 r = v.variables;
