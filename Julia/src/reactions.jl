@@ -31,15 +31,15 @@ function apply!(reaction::SimpleReaction, derivatives::Variables,  t::Number, va
     end
 end
 
-# GeneralReaction has a function that computes the rate, then subtracts it from reactants and adds it to products
-struct GeneralReaction <: AbstractReaction
+# GeneralRateReaction has a function that computes the rate, then subtracts it from reactants and adds it to products
+struct GeneralRateReaction <: AbstractReaction
     name::String
     reactants::Array{String}
     products::Array{String}
     rate::Function # Maps time, variables and parameters to a rate.  time is optional.
 end
 
-function apply!(reaction::GeneralReaction, derivatives::Variables, t::Number, variables::Variables, parameters::Variables)::Nothing
+function apply!(reaction::GeneralRateReaction, derivatives::Variables, t::Number, variables::Variables, parameters::Variables)::Nothing
     rate = applicable(reaction.rate, variables, parameters) ? reaction.rate(variables, parameters) : reaction.rate(t, variables, parameters);
     #println("Reaction $(reaction.name) has rate $rate");
     for reactant = reaction.reactants
@@ -48,5 +48,16 @@ function apply!(reaction::GeneralReaction, derivatives::Variables, t::Number, va
     for product = reaction.products
         derivatives[product] += rate;
     end
+end
+
+# GeneralReaction has a function that modifies the derivatives
+struct GeneralReaction <: AbstractReaction
+    name::String
+    apply!::Function # Modifies derivatives (first argument).  Also takes time, variables and parameters.
+end
+
+function apply!(reaction::GeneralReaction, derivatives::Variables, t::Number, variables::Variables, parameters::Variables)::Nothing
+    reaction.apply!(derivatives, t, variables, parameters);
+    nothing;
 end
 
