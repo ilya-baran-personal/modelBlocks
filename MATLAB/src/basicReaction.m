@@ -42,7 +42,7 @@ classdef basicReaction < reaction
             rate = parameters(reaction.rateParameterIndex) * prod(variables(reaction.reactantIndices));
             % Apply changes
             derivatives(reaction.reactantIndices) = derivatives(reaction.reactantIndices) - rate;
-            derivatives(reaction.productIndices) = derivatives(reaction.productIndices) - rate;
+            derivatives(reaction.productIndices) = derivatives(reaction.productIndices) + rate;
         end
     end
 end

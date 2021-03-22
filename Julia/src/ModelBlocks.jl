@@ -2,7 +2,12 @@
 module ModelBlocks
 
 export Variable, Variables
-
 include("variables.jl")
+
+export AbstractReaction, SimpleReaction
+include("reactions.jl")
+
+export Block, runBlock
+include("block.jl")
 
 end
