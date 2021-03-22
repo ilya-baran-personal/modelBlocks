@@ -3,7 +3,7 @@
 # AbstractReaction type
 abstract type AbstractReaction end
 
-function apply!(reaction::AbstractReaction, derivatives::Variables, variables::Variables, parameters::Variables)::Nothing
+function apply!(reaction::AbstractReaction, derivatives::Variables, t::Number, variables::Variables, parameters::Variables)::Nothing
     error("Function apply! must be defined for concrete reactions");
 end
 
@@ -17,7 +17,7 @@ struct SimpleReaction <: AbstractReaction
     rateParameter::String
 end
 
-function apply!(reaction::SimpleReaction, derivatives::Variables, variables::Variables, parameters::Variables)::Nothing
+function apply!(reaction::SimpleReaction, derivatives::Variables,  t::Number, variables::Variables, parameters::Variables)::Nothing
     rate::Float64 = parameters[reaction.rateParameter];
     for reactant = reaction.reactants
         rate *= variables[reactant];
@@ -30,3 +30,23 @@ function apply!(reaction::SimpleReaction, derivatives::Variables, variables::Var
         derivatives[product] += rate;
     end
 end
+
+# GeneralReaction has a function that computes the rate, then subtracts it from reactants and adds it to products
+struct GeneralReaction <: AbstractReaction
+    name::String
+    reactants::Array{String}
+    products::Array{String}
+    rate::Function # Maps time, variables and parameters to a rate.  time is optional.
+end
+
+function apply!(reaction::GeneralReaction, derivatives::Variables, t::Number, variables::Variables, parameters::Variables)::Nothing
+    rate = applicable(reaction.rate, variables, parameters) ? reaction.rate(variables, parameters) : reaction.rate(t, variables, parameters);
+    #println("Reaction $(reaction.name) has rate $rate");
+    for reactant = reaction.reactants
+        derivatives[reactant] -= rate;
+    end
+    for product = reaction.products
+        derivatives[product] += rate;
+    end
+end
+

@@ -4,8 +4,8 @@ include("../src/ModelBlocks.jl");
 
 using .ModelBlocks
 using Test
-using Plots
 using OrdinaryDiffEq
+using Plots
 
 println("Block Test starting");
 
@@ -16,17 +16,21 @@ variables = Variables([
 ]);
 
 parameters = Variables([
-    Variable("Xin", 1.0, (0, 100), "kg/s", ""),
+    Variable("Xin", 1.5, (0, 100), "kg/s", ""),
     Variable("Yin", 1.0, (0, 100), "kg/s", ""),
-    Variable("Zout", 0.5, (0, 100), "kg/s", ""),
-    Variable("Kxy", 1.0, (0, 100), "?", ""),
+    Variable("Zout", 1.0, (0, 100), "kg/s", ""),
+    Variable("Xout", .2, (0, 100), "kg/s", ""),
+    Variable("Kxy", 0.5, (0, 100), "?", ""),
+    Variable("R", .1, (0, 100), "?", ""),
 ]);
 
 reactions = [
     SimpleReaction("X uptake", [], ["X"], "Xin"),
     SimpleReaction("Y uptake", [], ["Y"], "Yin"),
     SimpleReaction("Z clearance", ["Z"], [], "Zout"),
+    SimpleReaction("X clearance", ["X"], [], "Xout"),
     SimpleReaction("Transformation", ["X", "Y"], ["Z"], "Kxy"),
+    GeneralReaction("Random stuff", ["X"], ["Y"], (t, v, p) -> v.X * cos(t) * p.R)
 ];
 
 block = Block(variables, parameters, reactions);

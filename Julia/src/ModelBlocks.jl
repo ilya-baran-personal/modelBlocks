@@ -4,7 +4,7 @@ module ModelBlocks
 export Variable, Variables
 include("variables.jl")
 
-export AbstractReaction, SimpleReaction
+export AbstractReaction, SimpleReaction, GeneralReaction
 include("reactions.jl")
 
 export Block, runBlock

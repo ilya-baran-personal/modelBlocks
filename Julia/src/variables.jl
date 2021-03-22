@@ -30,11 +30,18 @@ function Variables(variables::Array{Variable,1})
     if length(nameToIndex) != length(variables)
         error("Duplicate variable names");
     end
-    return Variables(values, variables, nameToIndex)
+    return Variables(values, variables, nameToIndex);
+end
+
+function Variables(variables::Variables, values::Vector{Float64})
+    if length(variables.values) != length(values)
+        error("Cannot create $(length(variable.values)) variables with a vector of length $(length(values))");
+    end
+    return Variables(values, variables.variables, variables.nameToIndex);
 end
 
 function Base.getproperty(variables::Variables, symbol::Symbol)
-    if symbol === :values || symbol === :nameToIndex
+    if symbol === :values || symbol === :nameToIndex || symbol === :variables
         return getfield(variables, symbol)
     end
     variables.values[variables.nameToIndex[String(symbol)]]
