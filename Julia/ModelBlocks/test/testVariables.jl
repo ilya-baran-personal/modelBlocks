@@ -8,7 +8,7 @@ println("Variables Test starting");
 variableArray = [
     Variable("foo", 3, (2, 4), "meters", "Basic foo variable"),
     Variable("bar", 4, (2, 5), "meters", "Basic bar variable"),
-    Variable("m_3", 2, (1, 4), "moles", " This is m_3"),
+    Variable("m_3", 2, (1, 4), "moles", "This is m_3"),
 ];
 variables = Variables(variableArray);
 

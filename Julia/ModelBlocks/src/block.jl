@@ -6,6 +6,7 @@ struct Block
     variables::Variables
     parameters::Variables
     reactions::Array{AbstractReaction}
+    Block(v,p,r) = new(deepcopy(v), deepcopy(p), deepcopy(r));
 end
 
 function computeDerivatives(block::Block, t::Number, x::Vector)::Vector

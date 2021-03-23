@@ -18,6 +18,8 @@ struct Variable
     end
 end
 
+Base.show(io::IO, v::Variable) = print(io, "Var $(v.name) in $(v.range) default: $(v.defaultValue) units: $(v.units) $(v.description)");
+
 struct Variables{T<:Number}
     values::Vector{T}
     variables::Array{Variable,1}
@@ -30,7 +32,7 @@ function Variables(variables::Array{Variable,1})
     if length(nameToIndex) != length(variables)
         error("Duplicate variable names");
     end
-    return Variables{Float64}(values, variables, nameToIndex);
+    return Variables{Float64}(values, copy(variables), nameToIndex);
 end
 
 function Variables(variables::Variables{S}, values::Vector{T}) where {S, T<:Number}
@@ -59,3 +61,12 @@ function Base.setindex!(variables::Variables{T}, value, name::String) where T
     variables.values[variables.nameToIndex[name]] = value
 end
 
+function Base.show(io::IO, ::MIME"text/plain", vars::Variables{T}) where T
+    println("Variables:")
+    maxLen = maximum(v -> length(v.name), vars.variables);
+    for i = 1:length(vars.variables)
+        v = vars.variables[i];
+        value = vars.values[i];
+        println(io, "$(lpad(v.name, maxLen + 2)) = $value $(v.units) in $(v.range) $(v.description)");
+    end
+end
