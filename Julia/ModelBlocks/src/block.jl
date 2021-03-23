@@ -9,7 +9,7 @@ struct Block
 end
 
 function computeDerivatives(block::Block, t::Number, x::Vector)::Vector
-    derivatives = Variables(block.variables, zero(block.variables.values));
+    derivatives = Variables(block.variables, zero(x));
     variables = Variables(block.variables, x);
     for reaction = block.reactions
         apply!(reaction, derivatives, t, variables, block.parameters);
@@ -21,5 +21,5 @@ end
 function runBlock(block::Block, timeInterval::Tuple{Number, Number})
     floatInterval::Tuple{Float64, Float64} = convert(Tuple{Float64, Float64}, timeInterval);
     problem = ODEProblem((x, p, t) -> computeDerivatives(block, t, x), block.variables.values, floatInterval);
-    solve(problem, AutoTsit5(Rosenbrock23(autodiff=false)));
+    solve(problem, AutoTsit5(Rosenbrock23()));
 end

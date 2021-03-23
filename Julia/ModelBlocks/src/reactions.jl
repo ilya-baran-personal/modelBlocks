@@ -18,7 +18,7 @@ struct SimpleReaction <: AbstractReaction
 end
 
 function apply!(reaction::SimpleReaction, derivatives::Variables,  t::Number, variables::Variables, parameters::Variables)::Nothing
-    rate::Float64 = parameters[reaction.rateParameter];
+    rate = parameters[reaction.rateParameter];
     for reactant = reaction.reactants
         rate *= variables[reactant];
     end

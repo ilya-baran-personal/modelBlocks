@@ -18,26 +18,26 @@ struct Variable
     end
 end
 
-struct Variables
-    values::Vector{Float64}
+struct Variables{T<:Number}
+    values::Vector{T}
     variables::Array{Variable,1}
     nameToIndex::Dict{String,Int32}
 end
 
 function Variables(variables::Array{Variable,1})
-    values = [variable.defaultValue for variable = variables]
+    values = Vector([variable.defaultValue for variable = variables])
     nameToIndex = Dict{String,Int32}( variables[i].name => i for i = 1:length(variables));
     if length(nameToIndex) != length(variables)
         error("Duplicate variable names");
     end
-    return Variables(values, variables, nameToIndex);
+    return Variables{Float64}(values, variables, nameToIndex);
 end
 
-function Variables(variables::Variables, values::Vector{Float64})
+function Variables(variables::Variables{S}, values::Vector{T}) where {S, T<:Number}
     if length(variables.values) != length(values)
         error("Cannot create $(length(variable.values)) variables with a vector of length $(length(values))");
     end
-    return Variables(values, variables.variables, variables.nameToIndex);
+    return Variables{T}(values, variables.variables, variables.nameToIndex);
 end
 
 function Base.getproperty(variables::Variables, symbol::Symbol)
@@ -47,15 +47,15 @@ function Base.getproperty(variables::Variables, symbol::Symbol)
     variables.values[variables.nameToIndex[String(symbol)]]
 end
 
-function Base.getindex(variables::Variables, name::String)
+function Base.getindex(variables::Variables{T}, name::String)::T where T
     variables.values[variables.nameToIndex[name]]
 end
 
-function Base.setproperty!(variables::Variables, symbol::Symbol, value::Number)
+function Base.setproperty!(variables::Variables{T}, symbol::Symbol, value) where T
     variables.values[variables.nameToIndex[String(symbol)]] = value;
 end
 
-function Base.setindex!(variables::Variables, value::Number, name::String)
+function Base.setindex!(variables::Variables{T}, value, name::String) where T
     variables.values[variables.nameToIndex[name]] = value
 end
 
