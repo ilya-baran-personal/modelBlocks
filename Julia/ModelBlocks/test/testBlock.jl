@@ -1,8 +1,6 @@
 # Copyright (C) 2021 Ilya Baran.  This program is distributed under the terms of the MIT license.
 
-include("../src/ModelBlocks.jl");
-
-using .ModelBlocks
+using ModelBlocks
 using Test
 using OrdinaryDiffEq
 using Plots
