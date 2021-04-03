@@ -7,7 +7,7 @@ include("variables.jl")
 export AbstractReaction, SimpleReaction, GeneralRateReaction, GeneralReaction
 include("reactions.jl")
 
-export Block, runBlock
+export Block, computeDerivatives, runBlock, BlockWithOutputs, getOutputs
 include("block.jl")
 
 end

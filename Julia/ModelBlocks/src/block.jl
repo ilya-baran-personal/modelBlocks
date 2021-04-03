@@ -19,8 +19,29 @@ function computeDerivatives(block::Block, t::Number, x::Vector)::Vector
     return derivatives.values;
 end
 
-function runBlock(block::Block, timeInterval::Tuple{Number, Number})
-    floatInterval::Tuple{Float64, Float64} = convert(Tuple{Float64, Float64}, timeInterval);
+function runBlock(block::Block, timeRange::AbstractRange)
+    floatInterval::Tuple{Float64, Float64} = convert(Tuple{Float64, Float64}, (minimum(timeRange), maximum(timeRange)));
     problem = ODEProblem((x, p, t) -> computeDerivatives(block, t, x), block.variables.values, floatInterval);
-    solve(problem, AutoTsit5(Rosenbrock23()));
+    solution = solve(problem, AutoTsit5(Rosenbrock23()));
+end
+
+function solutionToVariables(block::Block, timeRange::AbstractRange, solution)
+    resultArray = Array{Array{Float64, 1}, 1}(undef, length(block.variables.variables));
+    for index = 1:length(resultArray)
+        resultArray[index] = solution(timeRange, idxs=index).u;
+    end
+    return Variables(block.variables, resultArray);
+end
+
+struct BlockWithOutputs
+    block::Block
+    outputs::Variables
+    computeOutputs::Function # Takes variables, solution (in Variables form), and outputs, and returns outputs
+end
+
+function getOutputs(blockWithOutputs::BlockWithOutputs, timeRange::AbstractRange)
+    solution = runBlock(blockWithOutputs.block, timeRange);
+    return blockWithOutputs.computeOutputs(blockWithOutputs.block.variables, timeRange,
+                                           solutionToVariables(blockWithOutputs.block, timeRange, solution),
+                                           blockWithOutputs.outputs);
 end

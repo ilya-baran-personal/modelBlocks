@@ -20,7 +20,7 @@ end
 
 Base.show(io::IO, v::Variable) = print(io, "Var $(v.name) in $(v.range) default: $(v.defaultValue) units: $(v.units) $(v.description)");
 
-struct Variables{T<:Number}
+struct Variables{T}
     values::Vector{T}
     variables::Array{Variable,1}
     nameToIndex::Dict{String,Int32}
@@ -35,9 +35,9 @@ function Variables(variables::Array{Variable,1})
     return Variables{Float64}(values, copy(variables), nameToIndex);
 end
 
-function Variables(variables::Variables{S}, values::Vector{T}) where {S, T<:Number}
+function Variables(variables::Variables{S}, values::Vector{T}) where {S, T}
     if length(variables.values) != length(values)
-        error("Cannot create $(length(variable.values)) variables with a vector of length $(length(values))");
+        error("Cannot create $(length(variables.values)) variables with a vector of length $(length(values))");
     end
     return Variables{T}(values, variables.variables, variables.nameToIndex);
 end

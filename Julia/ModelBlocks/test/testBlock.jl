@@ -37,6 +37,6 @@ reactions = [
 
 block = Block(variables, parameters, reactions);
 
-@time solution = runBlock(block, (0, 100));
+@time solution = runBlock(block, 0:100);
 
 println("Block Test finished");
