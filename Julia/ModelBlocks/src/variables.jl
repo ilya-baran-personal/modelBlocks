@@ -54,6 +54,10 @@ function Base.getindex(variables::Variables{T}, name::String)::T where T
 end
 
 function Base.setproperty!(variables::Variables{T}, symbol::Symbol, value) where T
+    if symbol === :values
+        variables.values[1:end] = value;
+        return
+    end
     variables.values[variables.nameToIndex[String(symbol)]] = value;
 end
 

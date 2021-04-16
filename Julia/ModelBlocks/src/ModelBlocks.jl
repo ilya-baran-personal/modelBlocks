@@ -10,4 +10,7 @@ include("reactions.jl")
 export Block, computeDerivatives, runBlock, BlockWithOutputs, getOutputs
 include("block.jl")
 
+export localSensitivity
+include("sensitivity.jl")
+
 end

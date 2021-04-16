@@ -72,3 +72,4 @@ end);
 
 @time solution = runBlock(block, 0:5:334);
 @time outputs = getOutputs(blockWithOutputs, 0:5:334)
+@time sensitivity = localSensitivity(blockWithOutputs, 0:1:334);
