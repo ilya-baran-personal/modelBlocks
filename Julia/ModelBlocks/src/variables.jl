@@ -74,3 +74,24 @@ function Base.show(io::IO, ::MIME"text/plain", vars::Variables{T}) where T
         println(io, "$(lpad(v.name, maxLen + 2)) = $value $(v.units) in $(v.range) $(v.description)");
     end
 end
+
+# Combining variables
+function variablesUnion(v1::Variables{T}, v2::Variables{T})::Variables{T} where T
+    newSize = length(v1.variables);
+    mergedNameToIndex = copy(v1.nameToIndex);
+    for var in v2.variables
+        if !haskey(mergedNameToIndex, var.name)
+            mergedNameToIndex[var.name] = newSize += 1;
+        end
+    end
+    newVariables = Array{Variable}(undef, newSize);
+    newValues = Vector{T}(undef, newSize);
+    newVariables[1:length(v1.variables)] = v1.variables;
+    newValues[1:length(v1.variables)] = v1.values;
+    for (name, index) in v2.nameToIndex
+        newIndex = mergedNameToIndex[name];
+        newValues[newIndex] = v2.values[index];
+        newVariables[newIndex] = v2.variables[index];
+    end
+    return Variables(newValues, newVariables, mergedNameToIndex);
+end

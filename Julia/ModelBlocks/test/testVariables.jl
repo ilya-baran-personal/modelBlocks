@@ -29,4 +29,21 @@ resize!(variableArray, 4);
 variableArray[4] = Variable("foo", 3, (2, 4), "meters", "Duplicate foo variable");
 @test_throws ErrorException Variables(variableArray);
 
+# Test combineVariables
+
+v1 = Variables([
+    Variable("a", 1, (1, 4), "", "A"),
+    Variable("b", 2, (1, 5), "", "B"),
+    Variable("c", 3, (1, 6), "", "C"),
+]);
+
+v2 = Variables([
+    Variable("b", 5, (1, 16), "", "B"),
+    Variable("d", 7, (1, 14), "", "D"),
+    Variable("c", 6, (1, 15), "", "C"),
+]);
+
+vUnion = variablesUnion(v1, v2);
+@test vUnion.values == [1, 5, 6, 7];
+
 println("Variables Test finished");

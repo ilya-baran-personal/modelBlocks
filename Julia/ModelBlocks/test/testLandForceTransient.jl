@@ -36,7 +36,7 @@ reactions = [
     GeneralRateReaction("TRPN IN", [], ["TRPN"], (t, v, p) -> p.k_on * (1 - v.TRPN) * (Cai(t + 0.5) / p.CaT50) ^ p.n_TRPN),
     SimpleReaction("TRPN OUT", ["TRPN"], [], "k_off"),
     GeneralRateReaction("XB", [], ["XB"], (t, v, p) -> begin
-        permtot = (v.TRPN / p.TRPN_50) ^ (p.n_xb / 2);
+        permtot = max(0, v.TRPN / p.TRPN_50) ^ (p.n_xb / 2);
         p.k_xb * (permtot * (1 - v.XB) - v.XB / permtot);
     end),
 ];
@@ -53,7 +53,7 @@ outputs = Variables([
 
 blockWithOutputs = BlockWithOutputs(block, outputs, (variables, timeRange, solution, outputs) -> begin
     force = block.parameters.Tref * solution.XB;
-    idx_maxF = argmax(force);
+    idx_maxF = min(length(force) - 1, max(2, argmax(force)));
     maxF = force[idx_maxF];
     t_at_maxF = timeRange[idx_maxF];
     
@@ -73,3 +73,6 @@ end);
 @time solution = runBlock(block, 0:5:334);
 @time outputs = getOutputs(blockWithOutputs, 0:5:334)
 @time sensitivity = localSensitivity(blockWithOutputs, 0:1:334);
+
+expected = deepcopy(outputs);
+@time fit = fitParameters(blockWithOutputs, 0:1:334, expected);

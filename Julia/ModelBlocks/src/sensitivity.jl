@@ -4,7 +4,6 @@ import FiniteDiff
 
 function localSensitivity(block::BlockWithOutputs, timeRange::AbstractRange)
     originalValues = block.block.parameters.values;
-    cache = FiniteDiff.JacobianCache(originalValues, block.outputs.values);
     lambda = (x) -> begin
         block.block.parameters.values = x;
         outputs = getOutputs(block, timeRange);
