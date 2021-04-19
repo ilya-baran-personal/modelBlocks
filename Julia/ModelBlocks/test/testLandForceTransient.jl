@@ -75,4 +75,4 @@ end);
 @time sensitivity = localSensitivity(blockWithOutputs, 0:1:334);
 
 expected = deepcopy(outputs);
-@time fit = fitParameters(blockWithOutputs, 0:1:334, expected);
+#@time fit = fitParameters(blockWithOutputs, 0:1:334, expected);

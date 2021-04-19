@@ -3,7 +3,7 @@
 # AbstractReaction type
 abstract type AbstractReaction end
 
-function apply!(reaction::AbstractReaction, derivatives::Variables, t::Number, variables::Variables, parameters::Variables)::Nothing
+function apply!(reaction::AbstractReaction, derivatives::Variables, t::Number, variables::Variables, parameters::Variables, extraVariables::Dict{String, Any})::Nothing
     error("Function apply! must be defined for concrete reactions");
 end
 
@@ -17,7 +17,7 @@ struct SimpleReaction <: AbstractReaction
     rateParameter::String
 end
 
-function apply!(reaction::SimpleReaction, derivatives::Variables,  t::Number, variables::Variables, parameters::Variables)::Nothing
+function apply!(reaction::SimpleReaction, derivatives::Variables,  t::Number, variables::Variables, parameters::Variables, extraVariables::Dict{String, Any})::Nothing
     rate = parameters[reaction.rateParameter];
     for reactant = reaction.reactants
         rate *= variables[reactant];
@@ -36,11 +36,25 @@ struct GeneralRateReaction <: AbstractReaction
     name::String
     reactants::Array{String}
     products::Array{String}
-    rate::Function # Maps time, variables and parameters to a rate.  time is optional.
+    rate::Function # Maps time, variables, parameters, and extraVariables to a rate.  time and extraVariables are optional, but if extraVariables are provided, time must be also
+    usesT::Bool
+    usesTAndExtraVariables::Bool
+    function GeneralRateReaction(name, reactants, products, rate)
+        variables = Variables(Array{Variable, 1}());
+        usesT = !applicable(rate, variables, variables);
+        usesTAndExtraVariables = usesT && !applicable(rate, 0, variables, variables);
+        new(name, reactants, products, rate, usesT, usesTAndExtraVariables);
+    end
 end
 
-function apply!(reaction::GeneralRateReaction, derivatives::Variables, t::Number, variables::Variables, parameters::Variables)::Nothing
-    rate = applicable(reaction.rate, variables, parameters) ? reaction.rate(variables, parameters) : reaction.rate(t, variables, parameters);
+function apply!(reaction::GeneralRateReaction, derivatives::Variables, t::Number, variables::Variables, parameters::Variables, extraVariables::Dict{String, Any})::Nothing
+    if reaction.usesTAndExtraVariables
+        rate = reaction.rate(t, variables, parameters, extraVariables);
+    elseif reaction.usesT
+        rate = reaction.rate(t, variables, parameters);
+    else
+        rate = reaction.rate(variables, parameters);
+    end
     #println("Reaction $(reaction.name) has rate $rate");
     for reactant = reaction.reactants
         derivatives[reactant] -= rate;
@@ -53,11 +67,10 @@ end
 # GeneralReaction has a function that modifies the derivatives
 struct GeneralReaction <: AbstractReaction
     name::String
-    apply!::Function # Modifies derivatives (first argument).  Also takes time, variables and parameters.
+    apply!::Function # Modifies derivatives (first argument).  Also takes time, variables, parameters, and extraVariables (which it can modify).
 end
 
-function apply!(reaction::GeneralReaction, derivatives::Variables, t::Number, variables::Variables, parameters::Variables)::Nothing
-    reaction.apply!(derivatives, t, variables, parameters);
+function apply!(reaction::GeneralReaction, derivatives::Variables, t::Number, variables::Variables, parameters::Variables, extraVariables::Dict{String, Any})::Nothing
+    reaction.apply!(derivatives, t, variables, parameters, extraVariables);
     nothing;
 end
-

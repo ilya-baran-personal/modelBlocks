@@ -29,10 +29,12 @@ reactions = [
     SimpleReaction("X clearance", ["X"], [], "Xout"),
     SimpleReaction("Transformation", ["X", "Y"], ["Z"], "Kxy"),
     GeneralRateReaction("Random stuff", ["X"], ["Y"], (t, v, p) -> v.X * cos(t) * p.R),
-    GeneralReaction("Really random stuff", (dvdt, t, v, p) -> begin
+    GeneralReaction("Really random stuff", (dvdt, t, v, p, e) -> begin
         dvdt.X += 0.1;
         dvdt.Y -= v.Z * 0.1;
-    end)
+        e["Extra"] = 3;
+    end),
+    GeneralRateReaction("Random stuff", ["X"], ["Y"], (t, v, p, e) -> e["Extra"]),
 ];
 
 block = Block(variables, parameters, reactions);

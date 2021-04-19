@@ -12,10 +12,11 @@ struct Block <: AbstractBlock
 end
 
 function computeDerivatives(block::Block, t::Number, x::Vector)::Vector
-    derivatives = Variables(block.variables, zero(x));
+    derivatives = Variables(block.variables, zero(t * x));
     variables = Variables(block.variables, x);
+    extraVariables = Dict{String, Any}();
     for reaction = block.reactions
-        apply!(reaction, derivatives, t, variables, block.parameters);
+        apply!(reaction, derivatives, t, variables, block.parameters, extraVariables);
     end
     #println("Time = $t");#, x = $x, result = $(derivatives.values)");
     return derivatives.values;
