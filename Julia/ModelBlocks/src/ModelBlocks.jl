@@ -7,7 +7,7 @@ include("variables.jl")
 export AbstractReaction, SimpleReaction, GeneralRateReaction, GeneralReaction
 include("reactions.jl")
 
-export Block, computeDerivatives, runBlock, BlockWithOutputs, getOutputs
+export Block, getVariables, getParameters, runBlock, BlockWithBindings, BlockWithOutputs, getOutputs
 include("block.jl")
 
 export localSensitivity

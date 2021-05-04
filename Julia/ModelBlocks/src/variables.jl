@@ -95,3 +95,19 @@ function variablesUnion(v1::Variables{T}, v2::Variables{T})::Variables{T} where 
     end
     return Variables(newValues, newVariables, mergedNameToIndex);
 end
+
+function variablesSubtract(v::Variables{T}, toRemove::AbstractSet{String})::Variables{T} where T
+    newValues = Vector{T}();
+    newVariables = Array{Variable,1}();
+    newNameToIndex = Dict{String,Int32}();    
+    for var in v.variables
+        if in(var.name, toRemove)
+            continue;
+        end
+        index = v.nameToIndex[var.name];
+        push!(newVariables, var);
+        push!(newValues, v.values[index]);
+        newNameToIndex[var.name] = length(newValues);
+    end
+    return Variables(newValues, newVariables, newNameToIndex);
+end
