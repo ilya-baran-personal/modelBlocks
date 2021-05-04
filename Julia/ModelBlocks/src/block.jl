@@ -1,6 +1,7 @@
 # Copyright (C) 2021 Ilya Baran.  This program is distributed under the terms of the MIT license.
 
 using OrdinaryDiffEq
+using MAT
 
 abstract type AbstractBlock end
 
@@ -16,6 +17,21 @@ function solutionToVariables(block::AbstractBlock, timeRange::AbstractRange, sol
         resultArray[index] = solution(timeRange, idxs=index).u;
     end
     return Variables(getVariables(block), resultArray);
+end
+
+function solutionToMatrix(solution, timeRange::AbstractRange)::Matrix
+    return Matrix(Array(solution(timeRange)));
+end
+
+function solutionToMatlab(solution, timeRange::AbstractRange, filename::String)
+    t = Vector(timeRange);
+    y = solutionToMatrix(solution, timeRange);
+    status = string(solution.retcode);
+    file = matopen(filename, "w");
+    write(file, "t", t);
+    write(file, "y", y);
+    write(file, "status", status);
+    close(file);
 end
 
 struct Block <: AbstractBlock
@@ -48,7 +64,7 @@ struct BlockWithBindings <: AbstractBlock
     parameters::Variables
 end
 
-function BlockWithBindings(subblock::AbstractBlock, parameterToBinding::Dict{String, Any})
+function BlockWithBindings(subblock::AbstractBlock, parameterToBinding::Dict{String, T}) where T
     subblockParameters::Variables = getParameters(subblock);
     blockParameterToBinding = Dict{String, Function}();
     for (parameter, binding) in parameterToBinding

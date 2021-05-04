@@ -40,4 +40,10 @@ boundBlock = BlockWithBindings(block, Dict([
 
 @time solution = runBlock(boundBlock, 0:100);
 
+boundBlock = BlockWithBindings(block, Dict([
+    ("p2", 3),
+]));
+
+@test getParameters(boundBlock).values == [3.0, 20.0, 4.0];
+
 println("Bindings Test finished");
