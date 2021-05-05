@@ -7,7 +7,7 @@ abstract type AbstractBlock end
 
 function runBlock(block::AbstractBlock, timeRange::AbstractRange)
     floatInterval::Tuple{Float64, Float64} = convert(Tuple{Float64, Float64}, (minimum(timeRange), maximum(timeRange)));
-    problem = ODEProblem((x, p, t) -> computeDerivatives(block, t, x), getVariables(block).values, floatInterval);
+    problem = ODEProblem((x, p, t) -> computeDerivatives(block, t, x), Vector{Float64}(getVariables(block).values), floatInterval);
     #solution = solve(problem, AutoTsit5(Rodas4()));
     solution = solve(problem, Rodas5());
 end
@@ -50,7 +50,8 @@ function computeDerivatives(block::Block, t::Number, x::Vector)::Vector
         apply!(reaction, derivatives, t, variables, block.parameters, extraVariables);
     end
     #println("Time = $t");#, x = $x, result = $(derivatives.values)");
-    return derivatives.values;
+    vType = typeof(t * x);
+    return vType(derivatives.values);
 end
 
 function getVariables(block::Block)::Variables block.variables; end

@@ -1,7 +1,7 @@
 # Copyright (C) 2021 Ilya Baran.  This program is distributed under the terms of the MIT license.
 module ModelBlocks
 
-export Variable, Variables, variablesUnion
+export Variable, Variables, variablesUnion, variablesSubtract, variablesToMatlab
 include("variables.jl")
 
 export AbstractReaction, SimpleReaction, GeneralRateReaction, GeneralReaction

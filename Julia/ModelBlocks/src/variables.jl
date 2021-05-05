@@ -20,26 +20,37 @@ end
 
 Base.show(io::IO, v::Variable) = print(io, "Var $(v.name) in $(v.range) default: $(v.defaultValue) units: $(v.units) $(v.description)");
 
-struct Variables{T}
-    values::Vector{T}
+struct Variables
+    values::Vector{Any}
     variables::Array{Variable,1}
     nameToIndex::Dict{String,Int32}
 end
 
 function Variables(variables::Array{Variable,1})
-    values = Vector([variable.defaultValue for variable = variables])
+    values = Vector{Any}([variable.defaultValue for variable = variables])
     nameToIndex = Dict{String,Int32}( variables[i].name => i for i = 1:length(variables));
     if length(nameToIndex) != length(variables)
         error("Duplicate variable names");
     end
-    return Variables{Float64}(values, copy(variables), nameToIndex);
+    return Variables(values, copy(variables), nameToIndex);
 end
 
-function Variables(variables::Variables{S}, values::Vector{T}) where {S, T}
+function Variables(variables::Variables, values::Vector{Any})
     if length(variables.values) != length(values)
         error("Cannot create $(length(variables.values)) variables with a vector of length $(length(values))");
     end
-    return Variables{T}(values, variables.variables, variables.nameToIndex);
+    return Variables(values, variables.variables, variables.nameToIndex);
+end
+
+function Variables(variables::Variables, values::Vector)
+    return Variables(variables, Vector{Any}(values));
+end
+
+function variablesToMatlab(variables::Variables, filename::String)
+    v = Dict{String,Any}(variables.variables[i].name => variables.values[i] for i = 1:length(variables.values));
+    file = matopen(filename, "w");
+    write(file, "v", v);
+    close(file);
 end
 
 function Base.getproperty(variables::Variables, symbol::Symbol)
@@ -49,11 +60,11 @@ function Base.getproperty(variables::Variables, symbol::Symbol)
     variables.values[variables.nameToIndex[String(symbol)]]
 end
 
-function Base.getindex(variables::Variables{T}, name::String)::T where T
+function Base.getindex(variables::Variables, name::String)
     variables.values[variables.nameToIndex[name]]
 end
 
-function Base.setproperty!(variables::Variables{T}, symbol::Symbol, value) where T
+function Base.setproperty!(variables::Variables, symbol::Symbol, value)
     if symbol === :values
         variables.values[1:end] = value;
         return
@@ -61,11 +72,11 @@ function Base.setproperty!(variables::Variables{T}, symbol::Symbol, value) where
     variables.values[variables.nameToIndex[String(symbol)]] = value;
 end
 
-function Base.setindex!(variables::Variables{T}, value, name::String) where T
+function Base.setindex!(variables::Variables, value, name::String)
     variables.values[variables.nameToIndex[name]] = value
 end
 
-function Base.show(io::IO, ::MIME"text/plain", vars::Variables{T}) where T
+function Base.show(io::IO, ::MIME"text/plain", vars::Variables)
     println("Variables:")
     maxLen = maximum(v -> length(v.name), vars.variables);
     for i = 1:length(vars.variables)
@@ -76,7 +87,7 @@ function Base.show(io::IO, ::MIME"text/plain", vars::Variables{T}) where T
 end
 
 # Combining variables
-function variablesUnion(v1::Variables{T}, v2::Variables{T})::Variables{T} where T
+function variablesUnion(v1::Variables, v2::Variables)::Variables
     newSize = length(v1.variables);
     mergedNameToIndex = copy(v1.nameToIndex);
     for var in v2.variables
@@ -85,7 +96,7 @@ function variablesUnion(v1::Variables{T}, v2::Variables{T})::Variables{T} where 
         end
     end
     newVariables = Array{Variable}(undef, newSize);
-    newValues = Vector{T}(undef, newSize);
+    newValues = Vector{Any}(undef, newSize);
     newVariables[1:length(v1.variables)] = v1.variables;
     newValues[1:length(v1.variables)] = v1.values;
     for (name, index) in v2.nameToIndex
@@ -96,8 +107,8 @@ function variablesUnion(v1::Variables{T}, v2::Variables{T})::Variables{T} where 
     return Variables(newValues, newVariables, mergedNameToIndex);
 end
 
-function variablesSubtract(v::Variables{T}, toRemove::AbstractSet{String})::Variables{T} where T
-    newValues = Vector{T}();
+function variablesSubtract(v::Variables, toRemove::AbstractSet{String})::Variables
+    newValues = Vector{Any}();
     newVariables = Array{Variable,1}();
     newNameToIndex = Dict{String,Int32}();    
     for var in v.variables
