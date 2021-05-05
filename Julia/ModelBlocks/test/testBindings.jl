@@ -35,7 +35,7 @@ boundBlock = BlockWithBindings(block, Dict([
     ("p3", (t, p, v) -> t / 5.)
 ]));
 
-@test getVariables(boundBlock) == getVariables(block);
+@test getVariables(boundBlock).values == getVariables(block).values;
 @test getParameters(boundBlock).values == [2.0, 4.0];
 
 @time solution = runBlock(boundBlock, 0:100);
@@ -44,6 +44,6 @@ boundBlock = BlockWithBindings(block, Dict([
     ("p2", 3),
 ]));
 
-@test getParameters(boundBlock).values == [3.0, 20.0, 4.0];
+@test getParameters(boundBlock).values == [1.0, 3.0, 4.0];
 
 println("Bindings Test finished");

@@ -57,6 +57,9 @@ function getParameters(block::Block)::Variables block.parameters; end
 function setParameter!(block::Block, name::String, value)
     block.parameters[name] = value;
 end
+function setParameters!(block::Block, values)
+    block.parameters.values = values;
+end
 
 struct BlockWithBindings <: AbstractBlock
     subblock::AbstractBlock
@@ -65,6 +68,7 @@ struct BlockWithBindings <: AbstractBlock
 end
 
 function BlockWithBindings(subblock::AbstractBlock, parameterToBinding::Dict{String, T}) where T
+    subblock = deepcopy(subblock);
     subblockParameters::Variables = getParameters(subblock);
     blockParameterToBinding = Dict{String, Function}();
     for (parameter, binding) in parameterToBinding
@@ -74,7 +78,7 @@ function BlockWithBindings(subblock::AbstractBlock, parameterToBinding::Dict{Str
         if isa(binding, Function)
             blockParameterToBinding[parameter] = binding;
         else
-            blockParameterToBinding[parameter] = (t, p, v) -> binding;
+            setParameter!(subblock, parameter, binding);
         end
     end
     newParameters = variablesSubtract(subblockParameters, Set(keys(parameterToBinding)));
@@ -86,6 +90,12 @@ function getParameters(block::BlockWithBindings)::Variables block.parameters; en
 function setParameter!(block::BlockWithBindings, name::String, value)
     block.parameters[name] = value;
     setParameter!(block.subblock, name, value);
+end
+function setParameters!(block::BlockWithBindings, values)
+    block.parameters.values = values;
+    for (name, index) in block.parameters.nameToIndex
+        setParameter!(block.subblock, name, block.parameters.values[index]);
+    end
 end
 
 function computeDerivatives(block::BlockWithBindings, t::Number, x::Vector)::Vector
