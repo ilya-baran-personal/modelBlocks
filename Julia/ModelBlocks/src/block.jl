@@ -8,10 +8,11 @@ abstract type AbstractBlock end
 function runBlock(block::AbstractBlock, timeRange::AbstractRange)
     floatInterval::Tuple{Float64, Float64} = convert(Tuple{Float64, Float64}, (minimum(timeRange), maximum(timeRange)));
     problem = ODEProblem((x, p, t) -> computeDerivatives(block, t, x), getVariables(block).values, floatInterval);
-    solution = solve(problem, AutoTsit5(Rodas4()));
+    #solution = solve(problem, AutoTsit5(Rodas4()));
+    solution = solve(problem, Rodas5());
 end
 
-function solutionToVariables(block::AbstractBlock, timeRange::AbstractRange, solution)
+function solutionToVariables(solution, block::AbstractBlock, timeRange::AbstractRange)
     resultArray = Array{Array{Float64, 1}, 1}(undef, length(getVariables(block).variables));
     for index = 1:length(resultArray)
         resultArray[index] = solution(timeRange, idxs=index).u;
@@ -67,7 +68,7 @@ struct BlockWithBindings <: AbstractBlock
     parameters::Variables
 end
 
-function BlockWithBindings(subblock::AbstractBlock, parameterToBinding::Dict{String, T}) where T
+function BlockWithBindings(subblock::AbstractBlock, parameterToBinding::AbstractDict{String, T}) where T
     subblock = deepcopy(subblock);
     subblockParameters::Variables = getParameters(subblock);
     blockParameterToBinding = Dict{String, Function}();
@@ -83,6 +84,26 @@ function BlockWithBindings(subblock::AbstractBlock, parameterToBinding::Dict{Str
     end
     newParameters = variablesSubtract(subblockParameters, Set(keys(parameterToBinding)));
     return BlockWithBindings(subblock, blockParameterToBinding, newParameters);
+end
+
+# Keep the parameters that are provided, and bind the rest to their current values
+function BlockWithBindings(subblock::AbstractBlock, parametersToKeep::Array{String})
+    subblock = deepcopy(subblock);
+    subblockParameters::Variables = getParameters(subblock);
+    newParameters::Array{Variable} = [];
+    newValues::Array = [];
+    for parameter in parametersToKeep
+        if !haskey(subblockParameters.nameToIndex, parameter)
+            error("Cannot keep nonexistent parameter $(parameter)");
+        end
+        index = subblockParameters.nameToIndex[parameter];
+        variable = subblockParameters.variables[index];
+        push!(newParameters, variable);
+        push!(newValues, subblockParameters.values[index]);
+    end
+    newParametersV = Variables(newParameters);
+    newParametersV.values = newValues;
+    return BlockWithBindings(subblock, Dict{String, Function}(), newParametersV);
 end
 
 function getVariables(block::BlockWithBindings)::Variables getVariables(block.subblock); end
@@ -115,6 +136,6 @@ end
 function getOutputs(blockWithOutputs::BlockWithOutputs, timeRange::AbstractRange)
     solution = runBlock(blockWithOutputs.block, timeRange);
     return blockWithOutputs.computeOutputs(getVariables(blockWithOutputs.block), timeRange,
-                                           solutionToVariables(blockWithOutputs.block, timeRange, solution),
-                                           blockWithOutputs.outputs);
+                                           solutionToVariables(solution, blockWithOutputs.block, timeRange),
+                                           deepcopy(blockWithOutputs.outputs));
 end

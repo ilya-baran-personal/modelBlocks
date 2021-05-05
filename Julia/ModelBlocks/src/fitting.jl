@@ -1,6 +1,7 @@
 # Copyright (C) 2021 Ilya Baran.  This program is distributed under the terms of the MIT license.
 
-using Optim
+import Optim
+import BlackBoxOptim
 
 function fitParameters(block::BlockWithOutputs, timeRange::AbstractRange, expectedOutputs::Variables)
     lower = [variable.range[1] for variable in getParameters(block.block).variables];
@@ -9,6 +10,15 @@ function fitParameters(block::BlockWithOutputs, timeRange::AbstractRange, expect
     lower = min.(initial_x * 0.5, initial_x * 2);
     upper = max.(initial_x * 0.5, initial_x * 2);
     return fitParameters(block, timeRange, lower, upper, expectedOutputs)
+end
+
+function fitParameters(block::BlockWithOutputs, timeRange::AbstractRange,
+                       parametersAndBounds::AbstractDict{String, Tuple{Float64, Float64}}, expectedOutputs::Variables)
+    boundBlock = BlockWithBindings(block.block, collect(keys(parametersAndBounds)));
+    lower = [value[1] for (key, value) in parametersAndBounds];
+    upper = [value[2] for (key, value) in parametersAndBounds];
+    boundWithOutputs = BlockWithOutputs(boundBlock, block.outputs, block.computeOutputs);
+    return fitParameters(boundWithOutputs, timeRange, lower, upper, expectedOutputs);
 end
 
 function fitParameters(block::BlockWithOutputs, timeRange::AbstractRange, lower::Array, upper::Array, expectedOutputs::Variables)
@@ -25,7 +35,8 @@ function fitParameters(block::BlockWithOutputs, timeRange::AbstractRange, lower:
         return err;
     end
 
-    result = optimize(f, lower, upper, initial_x, SAMIN(rt=0.5), Optim.Options(iterations=10^4));
+    #result = Optim.optimize(f, lower, upper, initial_x, SAMIN(rt=0.5), Optim.Options(iterations=10^4));
+    result = BlackBoxOptim.bboptimize(f; SearchRange = collect(zip(lower, upper)), MaxTime = 10.0);
     setParameters!(block.block, initial_x);
     return result;
 end
