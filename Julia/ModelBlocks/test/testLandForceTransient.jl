@@ -51,7 +51,7 @@ outputs = Variables([
     Variable("f_relax_vel_norm", 0.0, (0, 100), "?", ""),
 ]);
 
-blockWithOutputs = BlockWithOutputs(block, outputs, (variables, timeRange, solution, outputs) -> begin
+blockWithOutputs = BlockWithOutputs(block, outputs, (variables, parameters, timeRange, solution, outputs) -> begin
     force = block.parameters.Tref * solution.XB;
     idx_maxF = min(length(force) - 1, max(2, argmax(force)));
     maxF = force[idx_maxF];

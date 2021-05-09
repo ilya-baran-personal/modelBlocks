@@ -131,12 +131,12 @@ end
 struct BlockWithOutputs
     block::AbstractBlock
     outputs::Variables
-    computeOutputs::Function # Takes variables, solution (in Variables form), and outputs, and returns outputs
+    computeOutputs::Function # Takes variables, parameters, solution (in Variables form), and outputs, and returns outputs
 end
 
 function getOutputs(blockWithOutputs::BlockWithOutputs, timeRange::AbstractRange)
     solution = runBlock(blockWithOutputs.block, timeRange);
-    return blockWithOutputs.computeOutputs(getVariables(blockWithOutputs.block), timeRange,
+    return blockWithOutputs.computeOutputs(getVariables(blockWithOutputs.block), getParameters(blockWithOutputs.block), timeRange,
                                            solutionToVariables(solution, blockWithOutputs.block, timeRange),
                                            deepcopy(blockWithOutputs.outputs));
 end

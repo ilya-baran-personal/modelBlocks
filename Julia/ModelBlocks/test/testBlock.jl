@@ -46,7 +46,7 @@ outputs = Variables([
     Variable("scalar", 0.0, (0, 100), "?", ""),
 ]);
 
-blockWithOutputs = BlockWithOutputs(block, outputs, (variables, timeRange, solution, outputs) -> begin
+blockWithOutputs = BlockWithOutputs(block, outputs, (variables, parameters, timeRange, solution, outputs) -> begin
     outputs.vector = [solution.X[1], solution.X[5]];
     outputs.scalar = solution.Y[end];
 
