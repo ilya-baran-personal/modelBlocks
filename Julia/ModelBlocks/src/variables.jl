@@ -28,7 +28,7 @@ end
 
 function Variables(variables::Array{Variable,1})
     values = Vector{Any}([variable.defaultValue for variable = variables])
-    nameToIndex = Dict{String,Int32}( variables[i].name => i for i = 1:length(variables));
+    nameToIndex = Dict{String,Int32}(variables[i].name => i for i = 1:length(variables));
     if length(nameToIndex) != length(variables)
         error("Duplicate variable names");
     end

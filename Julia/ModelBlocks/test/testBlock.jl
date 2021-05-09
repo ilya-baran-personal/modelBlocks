@@ -41,4 +41,25 @@ block = Block(variables, parameters, reactions);
 
 @time solution = runBlock(block, 0:100);
 
+outputs = Variables([
+    Variable("vector", 0.0, (0, 100), "?", ""),
+    Variable("scalar", 0.0, (0, 100), "?", ""),
+]);
+
+blockWithOutputs = BlockWithOutputs(block, outputs, (variables, timeRange, solution, outputs) -> begin
+    outputs.vector = [solution.X[1], solution.X[5]];
+    outputs.scalar = solution.Y[end];
+
+    return outputs;
+end);
+
+expected = deepcopy(outputs);
+expected.vector = [1, 2];
+expected.scalar = 3;
+
+@time fit = fitParameters(blockWithOutputs, 0:1:334, Dict(
+    "Xin" => (0., 10.0),
+    "Yin" => (0., 10.0),
+), expected; MaxTime = 3);
+
 println("Block Test finished");
