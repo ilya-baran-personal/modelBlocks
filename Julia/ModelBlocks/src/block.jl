@@ -109,6 +109,7 @@ end
 
 function getVariables(block::BlockWithBindings)::Variables getVariables(block.subblock); end
 function getParameters(block::BlockWithBindings)::Variables block.parameters; end
+function getOutputs(blockWithBindings::BlockWithBindings, timeRange::AbstractRange) getOutputs(blockWithBindings.subblock, timeRange); end
 function setParameter!(block::BlockWithBindings, name::String, value)
     block.parameters[name] = value;
     setParameter!(block.subblock, name, value);
@@ -128,15 +129,20 @@ function computeDerivatives(block::BlockWithBindings, t::Number, x::Vector)::Vec
     return computeDerivatives(block.subblock, t, x);
 end
 
-struct BlockWithOutputs
-    block::AbstractBlock
+struct BlockWithOutputs <: AbstractBlock
+    subblock::AbstractBlock
     outputs::Variables
     computeOutputs::Function # Takes variables, parameters, solution (in Variables form), and outputs, and returns outputs
 end
 
 function getOutputs(blockWithOutputs::BlockWithOutputs, timeRange::AbstractRange)
-    solution = runBlock(blockWithOutputs.block, timeRange);
-    return blockWithOutputs.computeOutputs(getVariables(blockWithOutputs.block), getParameters(blockWithOutputs.block), timeRange,
-                                           solutionToVariables(solution, blockWithOutputs.block, timeRange),
+    solution = runBlock(blockWithOutputs.subblock, timeRange);
+    return blockWithOutputs.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs), timeRange,
+                                           solutionToVariables(solution, blockWithOutputs, timeRange),
                                            deepcopy(blockWithOutputs.outputs));
 end
+
+function getVariables(block::BlockWithOutputs)::Variables getVariables(block.subblock); end
+function getParameters(block::BlockWithOutputs)::Variables getParameters(block.subblock); end
+function setParameter!(block::BlockWithOutputs, name::String, value) setParameter!(block.subblock, name, value); end
+function setParameters!(block::BlockWithOutputs, values) setParameters!(block.subblock, values); end

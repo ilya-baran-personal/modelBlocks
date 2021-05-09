@@ -57,9 +57,9 @@ expected = deepcopy(outputs);
 expected.vector = [1, 2];
 expected.scalar = 3;
 
-@time fit = fitParameters(blockWithOutputs, 0:1:334, Dict(
-    "Xin" => (0., 10.0),
-    "Yin" => (0., 10.0),
-), expected; MaxTime = 3);
+@time fit = fitParameters(blockWithOutputs, 0:1:334, [
+    ("Xin", 0., 10.0),
+    ("Yin", 0., 10.0),
+], expected; MaxTime = 3);
 
 println("Block Test finished");

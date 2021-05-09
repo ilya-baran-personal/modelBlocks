@@ -77,8 +77,8 @@ end);
 expected = deepcopy(outputs);
 expected.f_relax_vel += 0.01;
 
-#@time fit = fitParameters(blockWithOutputs, 0:1:334, Dict(
-#    "lambda_const" => (0.5, 2.0),
-#    "n_xb"         => (2.5, 10.0),
-#), expected);
+@time fit = fitParameters(blockWithOutputs, 0:1:334, [
+    ("lambda_const", 0.5, 2.0),
+    ("n_xb",         2.5, 10.0),
+], expected);
 #@time fit = fitParameters(blockWithOutputs, 0:1:334, expected);

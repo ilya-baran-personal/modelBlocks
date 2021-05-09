@@ -2,14 +2,14 @@
 
 import FiniteDiff
 
-function localSensitivity(block::BlockWithOutputs, timeRange::AbstractRange)
-    originalValues = Vector{Float64}(getParameters(block.block).values);
+function localSensitivity(block::AbstractBlock, timeRange::AbstractRange)
+    originalValues = Vector{Float64}(getParameters(block).values);
     lambda = (x) -> begin
-        setParameters!(block.block, x);
+        setParameters!(block, x);
         outputs = getOutputs(block, timeRange);
         return Vector{Float64}(outputs.values);
     end
     jacobian = FiniteDiff.finite_difference_jacobian(lambda, originalValues);
-    setParameters!(block.block, originalValues);
+    setParameters!(block, originalValues);
     return jacobian;
 end
