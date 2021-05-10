@@ -9,7 +9,7 @@ function runBlock(block::AbstractBlock, timeRange::AbstractRange)
     floatInterval::Tuple{Float64, Float64} = convert(Tuple{Float64, Float64}, (minimum(timeRange), maximum(timeRange)));
     problem = ODEProblem((x, p, t) -> computeDerivatives(block, t, x), Vector{Float64}(getVariables(block).values), floatInterval);
     #solution = solve(problem, AutoTsit5(Rodas4()));
-    solution = solve(problem, Rodas5());
+    solution = solve(problem, Rodas4P());
 end
 
 function solutionToVariables(solution, block::AbstractBlock, timeRange::AbstractRange)

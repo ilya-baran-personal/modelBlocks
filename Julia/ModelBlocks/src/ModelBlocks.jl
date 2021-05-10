@@ -17,4 +17,7 @@ include("sensitivity.jl")
 export fitParameters
 include("fitting.jl")
 
+export generateVPop
+include("vpop.jl")
+
 end
