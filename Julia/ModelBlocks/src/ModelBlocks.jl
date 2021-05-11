@@ -8,7 +8,7 @@ export AbstractReaction, SimpleReaction, GeneralRateReaction, GeneralReaction
 include("reactions.jl")
 
 export AbstractBlock, Block, getVariables, getParameters, runBlock, BlockWithBindings, BlockWithOutputs, getOutputs
-export solutionToMatlab, solutionToMatrix, solutionToVariables
+export solutionToMatlab, solutionToMatrix, solutionToVariables, setParameter!, setParameters!
 include("block.jl")
 
 export localSensitivity
