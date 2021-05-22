@@ -29,7 +29,7 @@ function fitParameters(block::AbstractBlock, timeRange::AbstractRange, lower::Ar
         difference = unfold(outputs.values) - unfold(expectedOutputs.values);
         err = sum(difference .^ 2);
         if mod(count += 1, 100) == 0
-            println("c = $count, x = $x, err = $err");
+            println("c = $count, x = $x, err = $err, diff = $difference");
         end
         return err;
     end
