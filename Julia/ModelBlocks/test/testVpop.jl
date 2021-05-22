@@ -37,13 +37,13 @@ blockWithOutputs = BlockWithOutputs(block, outputs, (variables, parameters, time
         return outputs;
     end);
 
-# @time vpop = generatePPop(blockWithOutputs, 0:20, [
-#     ("p1", 0., 5.),
-#     ("p2", 0., 5.)
-# ], Dict(
-#     "x" => (1., 0.02),
-#     "y" => (0.2, 0.02)
-# ), 5; MaxTime = 10);
+@time vpop = generatePPop(blockWithOutputs, 0:20, [
+    ("p1", 0., 5.),
+    ("p2", 0., 5.)
+], Dict(
+    "x" => (1., 0.02),
+    "y" => (0.2, 0.02)
+), 5; MaxTime = 10);
 
 ppop = rand(2, 20000);
 @time samples = subsamplePPop(ppop, fill(0.5, 2), [[1,1] [0,1]] / 100, 2000);

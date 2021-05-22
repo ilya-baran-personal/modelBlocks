@@ -5,6 +5,7 @@ import NearestNeighbors
 import SpecialFunctions
 using LinearAlgebra
 
+# Generate plausible population
 function generatePPop(blockWithOutputs::AbstractBlock,
     timeRange::AbstractRange,
     parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}},
@@ -14,6 +15,7 @@ function generatePPop(blockWithOutputs::AbstractBlock,
     generatePPop([blockWithOutputs], timeRange, parametersAndBounds, outputsAndStds, count; kwargs...)
 end
 
+# Generate plausible population with multiple block runs
 function generatePPop(blocksWithOutputs::Vector{T},
                       timeRange::AbstractRange,
                       parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}},
@@ -50,19 +52,30 @@ function generatePPop(blocksWithOutputs::Vector{T},
         return obj
     end
 
-    vpop = Matrix{Float64}(undef, length(lower), count);
+    ppop = Matrix{Float64}(undef, length(lower), count);
 
     for i in 1:count
         result = BlackBoxOptim.bboptimize(objective; SearchRange = collect(zip(lower, upper)), MaxTime = MaxTime / count);
-        vpop[:, i] = BlackBoxOptim.best_candidate(result);
+        ppop[:, i] = BlackBoxOptim.best_candidate(result);
     end
-    vpop;
+    ppop;
+end
+
+function subsamplePPop(vpop::Matrix, block::AbstractBlock, timeRange::AbstractRange, mean::Vector, covariance::Matrix, count::Integer)
+    outputs = Array{Variables}(undef, size(vpop, 2));
+    for i in 1:length(outputs)
+        setParameters!(block, vpop[:, i]);
+        outputs[i] = getOutputs(block, timeRange);
+    end
+    outputsMatrix = [outputs[j].values[i] for i=1:length(outputs[1].values), j=1:length(outputs)];
+    return subsamplePPop(outputsMatrix, mean, covariance, count);
 end
 
 const NEIGHBORS = 5;
 
 # outputs are columns of outputs.  Returns a vector of indices.
 function subsamplePPop(outputs::Matrix, mean::Vector, covariance::Matrix, count::Integer)
+    println("Size o = $(size(outputs))")
     tree = NearestNeighbors.KDTree(outputs; leafsize = 10);
     idxs, dists = NearestNeighbors.knn(tree, outputs, NEIGHBORS + 1, true);
     radii = [norm(outputs[idx[end]] - outputs[idx[1]]) for idx in idxs];
