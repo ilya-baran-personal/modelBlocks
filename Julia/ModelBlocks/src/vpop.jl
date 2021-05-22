@@ -61,7 +61,10 @@ function generatePPop(blocksWithOutputs::Vector{T},
     ppop;
 end
 
-function subsamplePPop(ppop::Matrix, block::AbstractBlock, timeRange::AbstractRange, mean::Vector, covariance::Matrix, count::Integer)
+function subsamplePPop(ppop::Matrix, block::AbstractBlock, parameterNames::AbstractArray{String}, timeRange::AbstractRange, mean::Vector, covariance::Matrix, count::Integer)
+    if length(parameterNames) != 0
+        block = BlockWithBindings(block, parameterNames);
+    end
     outputs = Array{Variables}(undef, size(ppop, 2));
     for i in 1:length(outputs)
         setParameters!(block, ppop[:, i]);
