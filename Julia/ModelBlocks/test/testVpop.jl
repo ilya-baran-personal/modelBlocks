@@ -1,6 +1,11 @@
 # Copyright (C) 2021 Ilya Baran.  This program is distributed under the terms of the MIT license.
 
 using ModelBlocks
+using Test
+using LinearAlgebra
+
+@test nBallVolume([2, 3], 2) ≈ [4 * pi, 9 * pi];
+@test nBallVolume(2, 3) ≈ 32 * pi / 3;
 
 variables = Variables([
     Variable("X", 1, (0, 100), "", ""),
@@ -32,10 +37,13 @@ blockWithOutputs = BlockWithOutputs(block, outputs, (variables, parameters, time
         return outputs;
     end);
 
-@time vpop = generateVPop(blockWithOutputs, 0:20, [
-    ("p1", 0., 5.),
-    ("p2", 0., 5.)
-], Dict(
-    "x" => (1., 0.02),
-    "y" => (0.2, 0.02)
-), 5; MaxTime = 10);
+# @time vpop = generatePPop(blockWithOutputs, 0:20, [
+#     ("p1", 0., 5.),
+#     ("p2", 0., 5.)
+# ], Dict(
+#     "x" => (1., 0.02),
+#     "y" => (0.2, 0.02)
+# ), 5; MaxTime = 10);
+
+ppop = rand(2, 20000);
+@time samples = subsamplePPop(ppop, fill(0.5, 2), [[1,1] [0,1]] / 100, 2000);

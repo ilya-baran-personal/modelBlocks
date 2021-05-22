@@ -1,17 +1,20 @@
 # Copyright (C) 2021 Ilya Baran.  This program is distributed under the terms of the MIT license.
 
 import BlackBoxOptim
+import NearestNeighbors
+import SpecialFunctions
+using LinearAlgebra
 
-function generateVPop(blockWithOutputs::AbstractBlock,
+function generatePPop(blockWithOutputs::AbstractBlock,
     timeRange::AbstractRange,
     parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}},
     outputsAndStds::AbstractDict{String, Tuple{Float64, Float64}}, # Name to value and std
     count::Int;
     kwargs...)
-    generateVPop([blockWithOutputs], timeRange, parametersAndBounds, outputsAndStds, count; kwargs...)
+    generatePPop([blockWithOutputs], timeRange, parametersAndBounds, outputsAndStds, count; kwargs...)
 end
 
-function generateVPop(blocksWithOutputs::Vector{T},
+function generatePPop(blocksWithOutputs::Vector{T},
                       timeRange::AbstractRange,
                       parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}},
                       outputsAndStds::AbstractDict{String, Tuple{Float64, Float64}}, # Indexed to match blocks.  Name to value and std.
@@ -54,4 +57,34 @@ function generateVPop(blocksWithOutputs::Vector{T},
         vpop[:, i] = BlackBoxOptim.best_candidate(result);
     end
     vpop;
+end
+
+const NEIGHBORS = 5;
+
+# outputs are columns of outputs.  Returns a vector of indices.
+function subsamplePPop(outputs::Matrix, mean::Vector, covariance::Matrix, count::Integer)
+    tree = NearestNeighbors.KDTree(outputs; leafsize = 10);
+    idxs, dists = NearestNeighbors.knn(tree, outputs, NEIGHBORS + 1, true);
+    radii = [norm(outputs[idx[end]] - outputs[idx[1]]) for idx in idxs];
+    densities = NEIGHBORS ./ nBallVolume(radii, size(outputs, 1));
+    scaledProbabilities = normalPDF(outputs, mean, covariance) ./ densities;
+    scaledProbabilities = scaledProbabilities / sum(scaledProbabilities);
+    return weightedSample(scaledProbabilities, count);
+end
+
+function weightedSample(weights::Vector, count::Integer)
+    fAndIdx = [(weights[i] < 1e-14 ? -1e100 : log(rand()) / weights[i], i) for i in 1:length(weights)];
+    fAndIdx = sort(fAndIdx, rev = true);
+    count = min(count, length(weights));
+    return sort([s[2] for s in fAndIdx[1:count]]);
+end
+
+function normalPDF(points::Matrix, mean::Vector, covariance::Matrix)
+    points = points .- mean;
+    result = exp.(-0.5 * sum(points .* (inv(covariance) * points), dims=1)[1,:]) / sqrt((2 * pi) ^ length(mean) * abs(det(covariance)));
+    return result;
+end
+
+function nBallVolume(radius, d::Number)
+    (pi ^ (d / 2) / SpecialFunctions.gamma(d / 2 + 1)) * radius .^ d 
 end

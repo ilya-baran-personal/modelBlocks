@@ -17,7 +17,7 @@ include("sensitivity.jl")
 export fitParameters
 include("fitting.jl")
 
-export generateVPop
+export generatePPop, subsamplePPop, nBallVolume, normalPDF, weightedSample
 include("vpop.jl")
 
 end
