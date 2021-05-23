@@ -57,7 +57,7 @@ function runBlock(block::AbstractBlock)
     timeRange = getTimeRange(block);
     floatInterval::Tuple{Float64, Float64} = convert(Tuple{Float64, Float64}, (minimum(timeRange), maximum(timeRange)));
     problem = ODEProblem((x, p, t) -> computeDerivatives(block, t, x), Vector{Float64}(getVariables(block).values), floatInterval);
-    solution = solve(problem, Rodas4P(), tstops = getDiscontinuities(block));
+    solve(problem, Rodas4P(), tstops = getDiscontinuities(block));
 end
 
 function solutionToVariables(solution, block::AbstractBlock, timeRange::AbstractRange)
@@ -116,7 +116,7 @@ end
 # ============================================ BlockWithBindings =======================================
 struct BlockWithBindings <: AbstractBlock
     subblock::AbstractBlock
-    parameterToBinding::Dict{String, Function} # Function takes t, existing parameters, and variables and returns a value
+    parameterToBinding::Dict{String, Function} # Function takes t, variables, and existing parameters and returns a value
     parameters::Variables
     extraData::BlockExtraData
 end
@@ -136,7 +136,9 @@ function BlockWithBindings(subblock::AbstractBlock, parameterToBinding::Abstract
         end
     end
     newParameters = variablesSubtract(subblockParameters, Set(keys(parameterToBinding)));
-    return BlockWithBindings(subblock, blockParameterToBinding, newParameters, getExtraData(subblock));
+    extraData = BlockExtraData();
+    extraData.timeRange = getExtraData(subblock).timeRange;
+    return BlockWithBindings(subblock, blockParameterToBinding, newParameters, extraData);
 end
 
 # Keep the parameters that are provided, and bind the rest to their current values
@@ -156,12 +158,13 @@ function BlockWithBindings(subblock::AbstractBlock, parametersToKeep::AbstractAr
     end
     newParametersV = Variables(newParameters);
     newParametersV.values = newValues;
-    return BlockWithBindings(subblock, Dict{String, Function}(), newParametersV, getExtraData(subblock));
+    extraData = BlockExtraData();
+    extraData.timeRange = getExtraData(subblock).timeRange;
+    return BlockWithBindings(subblock, Dict{String, Function}(), newParametersV, extraData);
 end
 
 function getVariables(block::BlockWithBindings)::Variables getVariables(block.subblock); end
 function getParameters(block::BlockWithBindings)::Variables block.parameters; end
-function getOutputs(blockWithBindings::BlockWithBindings, timeRange::AbstractRange) getOutputs(blockWithBindings.subblock, timeRange); end
 function setParameter!(block::BlockWithBindings, name::String, value)
     block.parameters[name] = value;
     setParameter!(block.subblock, name, value);
@@ -176,8 +179,145 @@ end
 function computeDerivatives(block::BlockWithBindings, t::Number, x::Vector)::Vector
     blockVariables = Variables(getVariables(block), x);
     for (parameter, binding) in block.parameterToBinding
-        setParameter!(block.subblock, parameter, binding(t, block.parameters, blockVariables));
+        setParameter!(block.subblock, parameter, binding(t, blockVariables, block.parameters));
     end
     return computeDerivatives(block.subblock, t, x);
 end
 
+function computeOutputs(blockWithOutputs::BlockWithBindings)
+    timeRange = getTimeRange(blockWithOutputs);
+    solution = runBlock(blockWithOutputs);
+
+    outputDefinition = getExtraData(blockWithOutputs).outputDefinition;
+    if (outputDefinition === nothing)
+        outputDefinition = getOutputDefinition(blockWithOutputs.subblock);
+        return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs.subblock), timeRange,
+                                               solutionToVariables(solution, blockWithOutputs, timeRange),
+                                               deepcopy(outputDefinition.outputs));
+    end
+    return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs), timeRange,
+                                           solutionToVariables(solution, blockWithOutputs, timeRange),
+                                           deepcopy(outputDefinition.outputs));
+end
+
+# ============================================ BlockCombo =======================================
+
+const EXTRA_NAME = "_extra_";
+
+struct BlockCombo <: AbstractBlock
+    subblocks::Vector{Tuple{String, AbstractBlock}}
+    parameters::Variables
+    parameterNameToBlocksAndNames::Dict{String, Vector{Tuple{String, String}}} # For setting parameters
+    glueFunctions::Vector{Tuple{String, String, Function}} # Block name, parameter name, function that computes it
+    # Glue functions take time, variables, parameters (of the entire block)
+    variables::Variables
+    extraData::BlockExtraData
+end
+
+function BlockCombo(subblocks::Vector{Tuple{String, T}},
+                    glueFunctions::Vector{Tuple{String, String, Function}},
+                    extraParameters::Variables) where T <: AbstractBlock
+    if (length(subblocks) < 1)
+        error("Must have at least one subblock");
+    end
+    extraData = getExtraData(subblocks[1][2]);
+    subblocks = deepcopy(subblocks);
+    gluedParameters = Set((f[1], f[2]) for f in glueFunctions);
+    
+    # Gather parameters
+    seenNames = Set{String}();
+    parameterArray = [];
+    parameterValueArray = [];
+    parameterNameToBlocksAndNames = Dict{String, Vector{Tuple{String, String}}}();
+
+    namesAndParameterSets = [(b[1], getParameters(b[2])) for b in subblocks];
+    push!(namesAndParameterSets, (EXTRA_NAME, extraParameters));
+
+    for namesAndParameters in namesAndParameterSets
+        parameters = namesAndParameters[2];
+        for parameter::Variable in parameters.variables
+            if (in((namesAndParameters[1], parameter.name), gluedParameters))
+                continue;
+            end
+            if !in(parameter.name, seenNames)
+                push!(seenNames, parameter.name);
+                push!(parameterArray, parameter);
+                push!(parameterValueArray, parameters.values[parameters.nameToIndex[parameter.name]]);                
+            end
+            if (namesAndParameters[1] != EXTRA_NAME)
+                push!(get!(parameterNameToBlocksAndNames, parameter.name, []), (namesAndParameters[1], parameter.name));
+            end
+        end
+    end
+
+    parameters = Variables(parameterArray);
+
+    variableArray = [];
+    variableValueArray = [];
+
+    for nameAndSubblock in subblocks
+        variables = getVariables(nameAndSubblock[2]);
+        for variable in variables
+            push!(variableArray, variable);
+            push!(variableValueArray, variables.values[variables.nameToIndex[variable.name]]);
+        end
+    end
+
+    variables = Variables(variableArray);
+    variables.values = variableValueArray;
+
+    result = BlockCombo(subblocks, parameters, parameterNameToBlocksAndNames, glueFunctions, variables, extraData);
+    setParameters!(result, parameterValueArray); # Propagate to subblocks
+    result;
+end
+
+function getSublock(block::BlockCombo, name::String)
+    for (subblockName, subblock) in block.subblocks
+        if name == subblockName
+            return subblock;
+        end
+    end
+    error("Subblock $name not found");
+end
+
+function getVariables(block::BlockCombo)::Variables block.variables; end
+function getParameters(block::BlockCombo)::Variables block.parameters; end
+function setParameter!(block::BlockCombo, name::String, value)
+    block.parameters[name] = value;
+    blocksAndNames = block.parameterNameToBlocksAndNames[name];
+    for blockAndName in blocksAndNames
+        setParameter!(getSubblock(block, blockAndName[1]), blockAndName[2], value);
+    end
+end
+
+function setParameters!(block::BlockCombo, values)
+    block.parameters.values = values;
+    
+    for parameter in block.parameters
+        blocksAndNames = get(block.parameterNameToBlocksAndNames, parameter.name, nothing);
+        if blocksAndNames === nothing
+            continue;
+        end
+        for blockAndName in blocksAndNames
+            setParameter!(getSubblock(block, blockAndName[1]), blockAndName[2], values[block.parameters.nameToIndex[parameter.name]]);
+        end
+    end
+end
+
+function computeDerivatives(block::BlockCombo, t::Number, x::Vector)::Vector
+    blockVariables = Variables(block.variables, x);
+    for nameParameterAndGlue in block.glueFunctions
+        value = nameParameterAndGlue[2](t, blockVariables, block.parameters);
+        setParameter!(getSubblock(block, nameParameterAndGlue[1]), nameParameterAndGlue[2], value);
+    end
+
+    derivatives = [];
+    variableIndex = 1;
+    for (_, subblock) in block.subblocks
+        nVariables = length(getVariables(subblock).variables);
+        push!(derivatives, computeDerivatives(subblock, t, x(variableIndex:(variableIndex + nVariables - 1))))
+        variableIndex += nVariables;
+    end
+
+    vcat(derivatives...);
+end

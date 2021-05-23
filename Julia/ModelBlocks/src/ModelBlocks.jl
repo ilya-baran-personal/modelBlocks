@@ -9,7 +9,7 @@ include("reactions.jl")
 
 export AbstractBlock, Block, getVariables, getParameters, runBlock, BlockWithBindings, BlockOutputDefinition, BlockExtraData, computeOutputs
 export solutionToMatlab, solutionToMatrix, solutionToVariables, setParameter!, setParameters!, getExtraData, getTimeRange, setTimeRange!
-export getOutputDefinition, setOutputDefinition!, getDiscontinuities, setDiscontinuities!
+export getOutputDefinition, setOutputDefinition!, getDiscontinuities, setDiscontinuities!, BlockCombo
 include("block.jl")
 
 export localSensitivity

@@ -21,8 +21,8 @@ function generatePPop(blocksWithOutputs::Vector{<:AbstractBlock},
                       count::Int;
                       MaxTime = 1000)
     boundBlocks = [BlockWithBindings(block, [name for (name, lower, upper) in parametersAndBounds]) for block in blocksWithOutputs];
-    lower = [lower for (name, lower, upper) in parametersAndBounds];
-    upper = [upper for (name, lower, upper) in parametersAndBounds];
+    lower = [lower for (_, lower, _) in parametersAndBounds];
+    upper = [upper for (_, _, upper) in parametersAndBounds];
 
     outputs = [computeOutputs(block) for block in blocksWithOutputs];
 
@@ -77,7 +77,7 @@ const NEIGHBORS = 5;
 # outputs are columns of outputs.  Returns a vector of indices.
 function subsamplePPop(outputs::Matrix, mean::Vector, covariance::Matrix, count::Integer)
     tree = NearestNeighbors.KDTree(outputs; leafsize = 10);
-    idxs, dists = NearestNeighbors.knn(tree, outputs, NEIGHBORS + 1, true);
+    idxs, _ = NearestNeighbors.knn(tree, outputs, NEIGHBORS + 1, true);
     radii = [norm(outputs[idx[end]] - outputs[idx[1]]) for idx in idxs];
     densities = NEIGHBORS ./ nBallVolume(radii, size(outputs, 1));
     scaledProbabilities = normalPDF(outputs, mean, covariance) ./ densities;

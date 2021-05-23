@@ -15,8 +15,8 @@ end
 function fitParameters(block::AbstractBlock,
                        parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}}, expectedOutputs::Variables; kwargs...)
     boundBlock = BlockWithBindings(block, [name for (name, lower, upper) in parametersAndBounds]);
-    lower = [lower for (name, lower, upper) in parametersAndBounds];
-    upper = [upper for (name, lower, upper) in parametersAndBounds];
+    lower = [lower for (_, lower, _) in parametersAndBounds];
+    upper = [upper for (_, _, upper) in parametersAndBounds];
     return fitParameters(boundBlock, lower, upper, expectedOutputs; kwargs...);
 end
 
