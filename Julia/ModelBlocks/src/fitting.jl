@@ -3,29 +3,29 @@
 import Optim
 import BlackBoxOptim
 
-function fitParameters(block::AbstractBlock, timeRange::AbstractRange, expectedOutputs::Variables; kwargs...)
+function fitParameters(block::AbstractBlock, expectedOutputs::Variables; kwargs...)
     lower = [variable.range[1] for variable in getParameters(block).variables];
     upper = [variable.range[2] for variable in getParameters(block).variables];
     initial_x = getParameters(block).values;
     lower = min.(initial_x * 0.5, initial_x * 2);
     upper = max.(initial_x * 0.5, initial_x * 2);
-    return fitParameters(block, timeRange, lower, upper, expectedOutputs; kwargs...)
+    return fitParameters(block, lower, upper, expectedOutputs; kwargs...)
 end
 
-function fitParameters(block::AbstractBlock, timeRange::AbstractRange,
+function fitParameters(block::AbstractBlock,
                        parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}}, expectedOutputs::Variables; kwargs...)
     boundBlock = BlockWithBindings(block, [name for (name, lower, upper) in parametersAndBounds]);
     lower = [lower for (name, lower, upper) in parametersAndBounds];
     upper = [upper for (name, lower, upper) in parametersAndBounds];
-    return fitParameters(boundBlock, timeRange, lower, upper, expectedOutputs; kwargs...);
+    return fitParameters(boundBlock, lower, upper, expectedOutputs; kwargs...);
 end
 
-function fitParameters(block::AbstractBlock, timeRange::AbstractRange, lower::Array, upper::Array, expectedOutputs::Variables; MaxTime = 10)
+function fitParameters(block::AbstractBlock, lower::Array, upper::Array, expectedOutputs::Variables; MaxTime = 10)
     initial_x = deepcopy(getParameters(block).values);
     count = 1;
     f = x -> begin
         setParameters!(block, x);
-        outputs = getOutputs(block, timeRange);
+        outputs = computeOutputs(block);
         difference = unfold(outputs.values) - unfold(expectedOutputs.values);
         err = sum(difference .^ 2);
         if mod(count += 1, 100) == 0

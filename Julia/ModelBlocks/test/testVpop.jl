@@ -25,25 +25,28 @@ reactions = [
 ];
 
 block = Block(variables, parameters, reactions);
+setTimeRange!(block, 0:20);
 
 outputs = Variables([
     Variable("x", 0.0, (0, 100), "?", ""),
     Variable("y", 0.0, (0, 100), "?", ""),
 ]);
 
-blockWithOutputs = BlockWithOutputs(block, outputs, (variables, parameters, timeRange, solution, outputs) -> begin
+setOutputDefinition!(block, outputs, (variables, parameters, timeRange, solution, outputs) -> begin
         outputs.x = solution.X[end];
         outputs.y = solution.Y[end];
         return outputs;
     end);
 
-@time vpop = generatePPop(blockWithOutputs, 0:20, [
+@time ppop = generatePPop(block, [
     ("p1", 0., 5.),
     ("p2", 0., 5.)
 ], Dict(
     "x" => (1., 0.02),
     "y" => (0.2, 0.02)
-), 5; MaxTime = 10);
+), 8; MaxTime = 10);
+
+@time samples = subsamplePPop(ppop, block, ["p1", "p2"], fill(0.5, 2), [[1,1] [0,1]] / 100, 2000);
 
 ppop = rand(2, 20000);
 @time samples = subsamplePPop(ppop, fill(0.5, 2), [[1,1] [0,1]] / 100, 2000);

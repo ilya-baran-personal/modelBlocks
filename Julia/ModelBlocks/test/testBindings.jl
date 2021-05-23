@@ -29,6 +29,7 @@ reactions = [
 ];
 
 block = Block(variables, parameters, reactions);
+setTimeRange!(block, 0:100);
 
 boundBlock = BlockWithBindings(block, Dict([
     ("p1", 3),
@@ -38,7 +39,7 @@ boundBlock = BlockWithBindings(block, Dict([
 @test getVariables(boundBlock).values == getVariables(block).values;
 @test getParameters(boundBlock).values == [2.0, 4.0];
 
-@time solution = runBlock(boundBlock, 0:100);
+@time solution = runBlock(boundBlock);
 
 boundBlock = BlockWithBindings(block, Dict([
     ("p2", 3),

@@ -7,26 +7,24 @@ using LinearAlgebra
 
 # Generate plausible population
 function generatePPop(blockWithOutputs::AbstractBlock,
-    timeRange::AbstractRange,
     parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}},
     outputsAndStds::AbstractDict{String, Tuple{Float64, Float64}}, # Name to value and std
     count::Int;
     kwargs...)
-    generatePPop([blockWithOutputs], timeRange, parametersAndBounds, outputsAndStds, count; kwargs...)
+    generatePPop([blockWithOutputs], parametersAndBounds, outputsAndStds, count; kwargs...)
 end
 
 # Generate plausible population with multiple block runs
-function generatePPop(blocksWithOutputs::Vector{T},
-                      timeRange::AbstractRange,
+function generatePPop(blocksWithOutputs::Vector{<:AbstractBlock},
                       parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}},
                       outputsAndStds::AbstractDict{String, Tuple{Float64, Float64}}, # Indexed to match blocks.  Name to value and std.
                       count::Int;
-                      MaxTime = 1000) where T <: AbstractBlock
+                      MaxTime = 1000)
     boundBlocks = [BlockWithBindings(block, [name for (name, lower, upper) in parametersAndBounds]) for block in blocksWithOutputs];
     lower = [lower for (name, lower, upper) in parametersAndBounds];
     upper = [upper for (name, lower, upper) in parametersAndBounds];
 
-    outputs = [getOutputs(block, timeRange) for block in blocksWithOutputs];
+    outputs = [computeOutputs(block) for block in blocksWithOutputs];
 
     expectedValuesArray = [];
     stdsArray = [];
@@ -45,7 +43,7 @@ function generatePPop(blocksWithOutputs::Vector{T},
         obj = 0.;
         for i in 1:length(boundBlocks)
             setParameters!(boundBlocks[i], x);
-            outputs = getOutputs(boundBlocks[i], timeRange);
+            outputs = computeOutputs(boundBlocks[i]);
             outputs = (outputs.values - expectedValuesArray[i]) ./ stdsArray[i];
             obj += sum(max.(outputs .^ 2, 1) .- 1)
         end
@@ -61,14 +59,14 @@ function generatePPop(blocksWithOutputs::Vector{T},
     ppop;
 end
 
-function subsamplePPop(ppop::Matrix, block::AbstractBlock, parameterNames::AbstractArray{String}, timeRange::AbstractRange, mean::Vector, covariance::Matrix, count::Integer)
+function subsamplePPop(ppop::Matrix, block::AbstractBlock, parameterNames::AbstractArray{String}, mean::Vector, covariance::Matrix, count::Integer)
     if length(parameterNames) != 0
         block = BlockWithBindings(block, parameterNames);
     end
     outputs = Array{Variables}(undef, size(ppop, 2));
     for i in 1:length(outputs)
         setParameters!(block, ppop[:, i]);
-        outputs[i] = getOutputs(block, timeRange);
+        outputs[i] = computeOutputs(block);
     end
     outputsMatrix = [outputs[j].values[i] for i=1:length(outputs[1].values), j=1:length(outputs)];
     return subsamplePPop(outputsMatrix, mean, covariance, count);
@@ -78,7 +76,6 @@ const NEIGHBORS = 5;
 
 # outputs are columns of outputs.  Returns a vector of indices.
 function subsamplePPop(outputs::Matrix, mean::Vector, covariance::Matrix, count::Integer)
-    println("Size o = $(size(outputs))")
     tree = NearestNeighbors.KDTree(outputs; leafsize = 10);
     idxs, dists = NearestNeighbors.knn(tree, outputs, NEIGHBORS + 1, true);
     radii = [norm(outputs[idx[end]] - outputs[idx[1]]) for idx in idxs];

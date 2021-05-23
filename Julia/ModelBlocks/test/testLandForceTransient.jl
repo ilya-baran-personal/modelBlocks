@@ -42,6 +42,7 @@ reactions = [
 ];
 
 block = Block(variables, parameters, reactions);
+setTimeRange!(block, 0:5:334);
 
 outputs = Variables([
     Variable("f_act_vel", 0.0, (0, 100), "?", ""),
@@ -51,7 +52,7 @@ outputs = Variables([
     Variable("f_relax_vel_norm", 0.0, (0, 100), "?", ""),
 ]);
 
-blockWithOutputs = BlockWithOutputs(block, outputs, (variables, parameters, timeRange, solution, outputs) -> begin
+setOutputDefinition!(block, outputs, (variables, parameters, timeRange, solution, outputs) -> begin
     force = block.parameters.Tref * solution.XB;
     idx_maxF = min(length(force) - 1, max(2, argmax(force)));
     maxF = force[idx_maxF];
@@ -70,15 +71,17 @@ blockWithOutputs = BlockWithOutputs(block, outputs, (variables, parameters, time
     return outputs;
 end);
 
-@time solution = runBlock(block, 0:5:334);
-@time outputs = getOutputs(blockWithOutputs, 0:5:334)
-@time sensitivity = localSensitivity(blockWithOutputs, 0:1:334);
+@time solution = runBlock(block);
+@time outputs = computeOutputs(block)
+@time sensitivity = localSensitivity(block);
 
 expected = deepcopy(outputs);
 expected.f_relax_vel += 0.01;
 
-@time fit = fitParameters(blockWithOutputs, 0:1:334, [
+setTimeRange!(block, 0:334);
+
+@time fit = fitParameters(block, [
     ("lambda_const", 0.5, 2.0),
     ("n_xb",         2.5, 10.0),
 ], expected);
-#@time fit = fitParameters(blockWithOutputs, 0:1:334, expected);
+#@time fit = fitParameters(block, expected);

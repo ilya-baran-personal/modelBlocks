@@ -5,11 +5,59 @@ using MAT
 
 abstract type AbstractBlock end
 
-function runBlock(block::AbstractBlock, timeRange::AbstractRange)
+struct BlockOutputDefinition
+    outputs::Variables
+    computeOutputs::Function # Takes variables, parameters, solution (in Variables form), and outputs, and returns outputs
+end
+
+mutable struct BlockExtraData
+    timeRange::Union{AbstractRange, Nothing}
+    discontinuities::Vector
+    outputDefinition::Union{BlockOutputDefinition, Nothing}
+    BlockExtraData() = new(nothing, [], nothing)
+end
+
+struct Block <: AbstractBlock
+    variables::Variables
+    parameters::Variables
+    reactions::Array{AbstractReaction}
+    extraData::BlockExtraData
+    Block(v, p, r) = new(deepcopy(v), deepcopy(p), deepcopy(r), BlockExtraData());
+end
+
+function getExtraData(block::AbstractBlock)::BlockExtraData block.extraData end
+
+function getTimeRange(block::AbstractBlock)::AbstractRange
+    range = getExtraData(block).timeRange;
+    if range === nothing
+        error("Expected time range but it was missing");
+    end
+    range;
+end
+
+function setTimeRange!(block::AbstractBlock, timeRange::AbstractRange) getExtraData(block).timeRange = timeRange; end
+
+function getOutputDefinition(block::AbstractBlock)::BlockOutputDefinition
+    outputs = getExtraData(block).outputDefinition;
+    if outputs === nothing
+        error("Expected output definition but it was missing");
+    end
+    outputs;
+end
+
+function setOutputDefinition!(block::AbstractBlock, outputs::Variables, computeOutputs::Function)
+    getExtraData(block).outputDefinition = BlockOutputDefinition(outputs, computeOutputs);
+end
+
+function getDiscontinuities(block::AbstractBlock)::Vector getExtraData(block).discontinuities; end
+
+function setDiscontinuities!(block::AbstractBlock, discontinuities::Vector{Number}) getExtraData(block).discontinuities = discontinuities; end
+
+function runBlock(block::AbstractBlock)
+    timeRange = getTimeRange(block);
     floatInterval::Tuple{Float64, Float64} = convert(Tuple{Float64, Float64}, (minimum(timeRange), maximum(timeRange)));
     problem = ODEProblem((x, p, t) -> computeDerivatives(block, t, x), Vector{Float64}(getVariables(block).values), floatInterval);
-    #solution = solve(problem, AutoTsit5(Rodas4()));
-    solution = solve(problem, Rodas4P());
+    solution = solve(problem, Rodas4P(), tstops = getDiscontinuities(block));
 end
 
 function solutionToVariables(solution, block::AbstractBlock, timeRange::AbstractRange)
@@ -35,13 +83,6 @@ function solutionToMatlab(solution, timeRange::AbstractRange, filename::String)
     close(file);
 end
 
-struct Block <: AbstractBlock
-    variables::Variables
-    parameters::Variables
-    reactions::Array{AbstractReaction}
-    Block(v,p,r) = new(deepcopy(v), deepcopy(p), deepcopy(r));
-end
-
 function computeDerivatives(block::Block, t::Number, x::Vector)::Vector
     derivatives = Variables(block.variables, zero(t * x));
     variables = Variables(block.variables, x);
@@ -63,10 +104,21 @@ function setParameters!(block::Block, values)
     block.parameters.values = values;
 end
 
+function computeOutputs(blockWithOutputs::AbstractBlock)
+    outputDefinition = getOutputDefinition(blockWithOutputs);
+    timeRange = getTimeRange(blockWithOutputs);
+    solution = runBlock(blockWithOutputs);
+    return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs), timeRange,
+                                           solutionToVariables(solution, blockWithOutputs, timeRange),
+                                           deepcopy(outputDefinition.outputs));
+end
+
+# ============================================ BlockWithBindings =======================================
 struct BlockWithBindings <: AbstractBlock
     subblock::AbstractBlock
     parameterToBinding::Dict{String, Function} # Function takes t, existing parameters, and variables and returns a value
     parameters::Variables
+    extraData::BlockExtraData
 end
 
 function BlockWithBindings(subblock::AbstractBlock, parameterToBinding::AbstractDict{String, T}) where T
@@ -84,11 +136,11 @@ function BlockWithBindings(subblock::AbstractBlock, parameterToBinding::Abstract
         end
     end
     newParameters = variablesSubtract(subblockParameters, Set(keys(parameterToBinding)));
-    return BlockWithBindings(subblock, blockParameterToBinding, newParameters);
+    return BlockWithBindings(subblock, blockParameterToBinding, newParameters, getExtraData(subblock));
 end
 
 # Keep the parameters that are provided, and bind the rest to their current values
-function BlockWithBindings(subblock::AbstractBlock, parametersToKeep::Array{String})
+function BlockWithBindings(subblock::AbstractBlock, parametersToKeep::AbstractArray{String})
     subblock = deepcopy(subblock);
     subblockParameters::Variables = getParameters(subblock);
     newParameters::Array{Variable} = [];
@@ -104,7 +156,7 @@ function BlockWithBindings(subblock::AbstractBlock, parametersToKeep::Array{Stri
     end
     newParametersV = Variables(newParameters);
     newParametersV.values = newValues;
-    return BlockWithBindings(subblock, Dict{String, Function}(), newParametersV);
+    return BlockWithBindings(subblock, Dict{String, Function}(), newParametersV, getExtraData(subblock));
 end
 
 function getVariables(block::BlockWithBindings)::Variables getVariables(block.subblock); end
@@ -129,20 +181,3 @@ function computeDerivatives(block::BlockWithBindings, t::Number, x::Vector)::Vec
     return computeDerivatives(block.subblock, t, x);
 end
 
-struct BlockWithOutputs <: AbstractBlock
-    subblock::AbstractBlock
-    outputs::Variables
-    computeOutputs::Function # Takes variables, parameters, solution (in Variables form), and outputs, and returns outputs
-end
-
-function getOutputs(blockWithOutputs::BlockWithOutputs, timeRange::AbstractRange)
-    solution = runBlock(blockWithOutputs.subblock, timeRange);
-    return blockWithOutputs.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs), timeRange,
-                                           solutionToVariables(solution, blockWithOutputs, timeRange),
-                                           deepcopy(blockWithOutputs.outputs));
-end
-
-function getVariables(block::BlockWithOutputs)::Variables getVariables(block.subblock); end
-function getParameters(block::BlockWithOutputs)::Variables getParameters(block.subblock); end
-function setParameter!(block::BlockWithOutputs, name::String, value) setParameter!(block.subblock, name, value); end
-function setParameters!(block::BlockWithOutputs, values) setParameters!(block.subblock, values); end
