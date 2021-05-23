@@ -215,8 +215,8 @@ struct BlockCombo <: AbstractBlock
 end
 
 function BlockCombo(subblocks::Vector{Tuple{String, T}},
-                    glueFunctions::Vector{Tuple{String, String, Function}},
-                    extraParameters::Variables) where T <: AbstractBlock
+                    glueFunctions::Vector{Tuple{String, String, F}},
+                    extraParameters::Variables) where {T <: AbstractBlock, F <: Function}
     if (length(subblocks) < 1)
         error("Must have at least one subblock");
     end
@@ -226,7 +226,7 @@ function BlockCombo(subblocks::Vector{Tuple{String, T}},
     
     # Gather parameters
     seenNames = Set{String}();
-    parameterArray = [];
+    parameterArray = Vector{Variable}();
     parameterValueArray = [];
     parameterNameToBlocksAndNames = Dict{String, Vector{Tuple{String, String}}}();
 
@@ -252,12 +252,12 @@ function BlockCombo(subblocks::Vector{Tuple{String, T}},
 
     parameters = Variables(parameterArray);
 
-    variableArray = [];
+    variableArray = Vector{Variable}();
     variableValueArray = [];
 
     for nameAndSubblock in subblocks
         variables = getVariables(nameAndSubblock[2]);
-        for variable in variables
+        for variable in variables.variables
             push!(variableArray, variable);
             push!(variableValueArray, variables.values[variables.nameToIndex[variable.name]]);
         end
@@ -271,7 +271,7 @@ function BlockCombo(subblocks::Vector{Tuple{String, T}},
     result;
 end
 
-function getSublock(block::BlockCombo, name::String)
+function getSubblock(block::BlockCombo, name::String)
     for (subblockName, subblock) in block.subblocks
         if name == subblockName
             return subblock;
@@ -293,7 +293,7 @@ end
 function setParameters!(block::BlockCombo, values)
     block.parameters.values = values;
     
-    for parameter in block.parameters
+    for parameter in block.parameters.variables
         blocksAndNames = get(block.parameterNameToBlocksAndNames, parameter.name, nothing);
         if blocksAndNames === nothing
             continue;
@@ -307,7 +307,7 @@ end
 function computeDerivatives(block::BlockCombo, t::Number, x::Vector)::Vector
     blockVariables = Variables(block.variables, x);
     for nameParameterAndGlue in block.glueFunctions
-        value = nameParameterAndGlue[2](t, blockVariables, block.parameters);
+        value = nameParameterAndGlue[3](t, blockVariables, block.parameters);
         setParameter!(getSubblock(block, nameParameterAndGlue[1]), nameParameterAndGlue[2], value);
     end
 
@@ -315,7 +315,7 @@ function computeDerivatives(block::BlockCombo, t::Number, x::Vector)::Vector
     variableIndex = 1;
     for (_, subblock) in block.subblocks
         nVariables = length(getVariables(subblock).variables);
-        push!(derivatives, computeDerivatives(subblock, t, x(variableIndex:(variableIndex + nVariables - 1))))
+        push!(derivatives, computeDerivatives(subblock, t, x[variableIndex:(variableIndex + nVariables - 1)]))
         variableIndex += nVariables;
     end
 
