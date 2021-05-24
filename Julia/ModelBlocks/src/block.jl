@@ -208,6 +208,14 @@ function computeOutputs(blockWithOutputs::BlockWithBindings)
                                            deepcopy(outputDefinition.outputs));
 end
 
+function getDiscontinuities(block::BlockWithBindings)::Vector
+    d = getExtraData(block).discontinuities;
+    if d === nothing
+        return getDiscontinuities(block.subblock);
+    end
+    return d(getParameters(block), getTimeRange(block));
+end
+
 # ============================================ BlockCombo =======================================
 
 const EXTRA_NAME = "_extra_";
