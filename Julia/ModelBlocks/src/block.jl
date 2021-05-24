@@ -51,7 +51,9 @@ end
 
 function getDiscontinuities(block::AbstractBlock)::Vector getExtraData(block).discontinuities; end
 
-function setDiscontinuities!(block::AbstractBlock, discontinuities::Vector{Number}) getExtraData(block).discontinuities = discontinuities; end
+function setDiscontinuities!(block::AbstractBlock, discontinuities::Vector{T}) where T <: Number
+    getExtraData(block).discontinuities = discontinuities;
+end
 
 function runBlock(block::AbstractBlock)
     timeRange = getTimeRange(block);

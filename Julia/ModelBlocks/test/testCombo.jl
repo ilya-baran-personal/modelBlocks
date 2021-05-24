@@ -27,11 +27,11 @@ variables2 = Variables([
 
 parameters2 = Variables([
     Variable("p3", 0.0, (0, 100), "kg/s", ""),
-    Variable("p4", 0.0, (0, 100), "kg/s", ""),
+    Variable("p4", 2.0, (0, 100), "kg/s", ""),
 ]);
 
 reactions2 = [
-    GeneralRateReaction("R", [], ["Y"], (t, v, p) -> p.p4),
+    GeneralRateReaction("R", [], ["Y"], (t, v, p) -> mod(t, 10) < 0.05 ? p.p4 : 0),
 ];
 
 block2 = Block(variables2, parameters2, reactions2);
@@ -39,12 +39,13 @@ block2 = Block(variables2, parameters2, reactions2);
 combo = BlockCombo(
     [("first", block1), ("second", block2)],
     [
-        ("first", "p1", (t, v, p) -> 3)
+        ("first", "p1", (t, v, p) -> v.Y - v.X)
     ],
     Variables(Vector{Variable}())
 );
 
 setTimeRange!(combo, 0:100);
+setDiscontinuities!(combo, vcat([[t * 10, t * 10 + 0.05] for t in 0:10]...));
 
 @time solution = runBlock(combo);
 
