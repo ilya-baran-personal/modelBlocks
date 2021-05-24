@@ -12,9 +12,9 @@ end
 
 mutable struct BlockExtraData
     timeRange::Union{AbstractRange, Nothing}
-    discontinuities::Vector
+    discontinuities::Union{Function, Nothing} # Takes parameters, timeRange, returns vector of discontinuities
     outputDefinition::Union{BlockOutputDefinition, Nothing}
-    BlockExtraData() = new(nothing, [], nothing)
+    BlockExtraData() = new(nothing, nothing, nothing)
 end
 
 struct Block <: AbstractBlock
@@ -49,9 +49,15 @@ function setOutputDefinition!(block::AbstractBlock, outputs::Variables, computeO
     getExtraData(block).outputDefinition = BlockOutputDefinition(outputs, computeOutputs);
 end
 
-function getDiscontinuities(block::AbstractBlock)::Vector getExtraData(block).discontinuities; end
+function getDiscontinuities(block::AbstractBlock)::Vector
+    d = getExtraData(block).discontinuities;
+    if d === nothing
+        return []
+    end
+    return d(getParameters(block), getTimeRange(block));
+end
 
-function setDiscontinuities!(block::AbstractBlock, discontinuities::Vector{T}) where T <: Number
+function setDiscontinuities!(block::AbstractBlock, discontinuities::T) where T <: Function
     getExtraData(block).discontinuities = discontinuities;
 end
 

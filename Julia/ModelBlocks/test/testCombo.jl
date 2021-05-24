@@ -36,16 +36,20 @@ reactions2 = [
 
 block2 = Block(variables2, parameters2, reactions2);
 
+extraParameters = Variables([
+    Variable("p5", 1.0, (0, 100), "kg/s", ""),
+]);
+
 combo = BlockCombo(
     [("first", block1), ("second", block2)],
     [
-        ("first", "p1", (t, v, p) -> v.Y - v.X)
+        ("first", "p1", (t, v, p) -> v.Y - v.X * p.p5)
     ],
-    Variables(Vector{Variable}())
+    extraParameters
 );
 
 setTimeRange!(combo, 0:100);
-setDiscontinuities!(combo, vcat([[t * 10, t * 10 + 0.05] for t in 0:10]...));
+setDiscontinuities!(combo, (p, timeRange) -> vcat([[t * 10, t * 10 + 0.05] for t in 0:10]...));
 
 @time solution = runBlock(combo);
 
