@@ -75,13 +75,15 @@ end);
 @time outputs = computeOutputs(block)
 @time sensitivity = localSensitivity(block);
 
-expected = deepcopy(outputs);
-expected.f_relax_vel += 0.01;
-
 setTimeRange!(block, 0:334);
 
-@time fit = fitParameters(block, [
+@time fit = fitParameters([block], [
     ("lambda_const", 0.5, 2.0),
     ("n_xb",         2.5, 10.0),
-], expected);
-#@time fit = fitParameters(block, expected);
+], Dict(
+    "f_act_vel" => (outputs.f_act_vel, 1),
+    "f_relax_vel" => (outputs.f_relax_vel + 0.01, 1),
+    "time_to_70perForce" => (outputs.time_to_70perForce, 1),
+    "f_act_vel_norm" => (outputs.f_act_vel_norm, 1),
+    "f_relax_vel_norm" => (outputs.f_relax_vel_norm, 1)
+));

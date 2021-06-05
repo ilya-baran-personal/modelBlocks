@@ -3,40 +3,41 @@
 import Optim
 import BlackBoxOptim
 
-function fitParameters(block::AbstractBlock, expectedOutputs::Variables; kwargs...)
-    lower = [variable.range[1] for variable in getParameters(block).variables];
-    upper = [variable.range[2] for variable in getParameters(block).variables];
-    initial_x = getParameters(block).values;
-    lower = min.(initial_x * 0.5, initial_x * 2);
-    upper = max.(initial_x * 0.5, initial_x * 2);
-    return fitParameters(block, lower, upper, expectedOutputs; kwargs...)
-end
-
-function fitParameters(block::AbstractBlock,
-                       parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}}, expectedOutputs::Variables; kwargs...)
-    boundBlock = BlockWithBindings(block, [name for (name, lower, upper) in parametersAndBounds]);
+function fitParameters(blocksWithOutputs::AbstractArray{<:AbstractBlock},
+    parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}, 1},
+    outputsAndStds::AbstractDict{String, Tuple{S, T}}; # Name to value and std.
+    MaxTime = 10) where {S, T}
+    boundBlocks = [BlockWithBindings(block, [name for (name, lower, upper) in parametersAndBounds]) for block in blocksWithOutputs];
     lower = [lower for (_, lower, _) in parametersAndBounds];
     upper = [upper for (_, _, upper) in parametersAndBounds];
-    return fitParameters(boundBlock, lower, upper, expectedOutputs; kwargs...);
-end
 
-function fitParameters(block::AbstractBlock, lower::Array, upper::Array, expectedOutputs::Variables; MaxTime = 10)
-    initial_x = deepcopy(getParameters(block).values);
-    count = 1;
-    f = x -> begin
-        setParameters!(block, x);
-        outputs = computeOutputs(block);
-        difference = unfold(outputs.values) - unfold(expectedOutputs.values);
-        err = sum(difference .^ 2);
-        if mod(count += 1, 100) == 0
-            println("c = $count, x = $x, err = $err, diff = $difference");
+    outputs = [computeOutputs(block) for block in blocksWithOutputs];
+
+    expectedValuesArray = [];
+    stdsArray = [];
+    for output in outputs
+        expectedValues = [];
+        stds = [];
+        for variable in output.variables
+            push!(expectedValues, outputsAndStds[variable.name][1]);
+            push!(stds, outputsAndStds[variable.name][2]);
         end
-        return err;
+        push!(expectedValuesArray, expectedValues);
+        push!(stdsArray, stds);
     end
 
-    #result = Optim.optimize(f, lower, upper, initial_x, SAMIN(rt=0.5), Optim.Options(iterations=10^4));
-    result = BlackBoxOptim.bboptimize(f; SearchRange = collect(zip(lower, upper)), MaxTime = MaxTime);
-    setParameters!(block, initial_x);    
+    objective = x -> begin
+        obj = 0.;
+        for i in 1:length(boundBlocks)
+            setParameters!(boundBlocks[i], x);
+            outputs = computeOutputs(boundBlocks[i]);
+            outputs = unfold(outputs.values - expectedValuesArray[i]) ./ unfold(stdsArray[i]);
+            obj += sum(outputs .^ 2)
+        end
+        return obj
+    end
+
+    result = BlackBoxOptim.bboptimize(objective; SearchRange = collect(zip(lower, upper)), MaxTime = MaxTime);
     return result;
 end
 

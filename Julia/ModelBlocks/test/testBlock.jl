@@ -54,13 +54,12 @@ setOutputDefinition!(block, outputs, (variables, parameters, timeRange, solution
     return outputs;
 end);
 
-expected = deepcopy(outputs);
-expected.vector = [1, 2];
-expected.scalar = 3;
-
-@time fit = fitParameters(block, [
+@time fit = fitParameters([block], [
     ("Xin", 0., 10.0),
     ("Yin", 0., 10.0),
-], expected; MaxTime = 3);
+], Dict(
+    "vector" => ([1, 2], [1, 1]),
+    "scalar" => (3, 1)
+); MaxTime = 3);
 
 println("Block Test finished");
