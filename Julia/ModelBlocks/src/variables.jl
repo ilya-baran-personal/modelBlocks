@@ -122,3 +122,10 @@ function variablesSubtract(v::Variables, toRemove::AbstractSet{String})::Variabl
     end
     return Variables(newValues, newVariables, newNameToIndex);
 end
+
+function renameVariables(variables::Variables, renameFunction::Function)::Variables
+    newVariables = [Variable(renameFunction(v.name), v.defaultValue, v.range, v.units, v.description) for v in variables.variables];
+    result = Variables(newVariables);
+    result.values = variables.values;
+    return result;
+end

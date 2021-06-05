@@ -7,7 +7,7 @@ abstract type AbstractBlock end
 
 struct BlockOutputDefinition
     outputs::Variables
-    computeOutputs::Function # Takes variables, parameters, solution (in Variables form), and outputs, and returns outputs
+    computeOutputs::Function # Takes variables, parameters, time range, solution (in Variables form), and outputs, and returns outputs
 end
 
 mutable struct BlockExtraData
@@ -47,6 +47,17 @@ end
 
 function setOutputDefinition!(block::AbstractBlock, outputs::Variables, computeOutputs::Function)
     getExtraData(block).outputDefinition = BlockOutputDefinition(outputs, computeOutputs);
+end
+
+function renameOutputs!(block::AbstractBlock, renameFunction::Function)
+    oldDef = getOutputDefinition(block);
+    newOutputs = renameVariables(oldDef.outputs, renameFunction);
+    newComputeFunction = (v, p, t, s, o) -> begin
+        oldOutputs = oldDef.computeOutputs(v, p, t, s, deepcopy(oldDef.outputs));
+        o.values = oldOutputs.values;
+        return o;
+    end;
+    setOutputDefinition!(block, newOutputs, newComputeFunction);
 end
 
 function getDiscontinuities(block::AbstractBlock)::Vector
