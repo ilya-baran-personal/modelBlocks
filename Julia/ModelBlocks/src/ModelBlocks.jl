@@ -15,7 +15,7 @@ include("block.jl")
 export localSensitivity
 include("sensitivity.jl")
 
-export fitParameters
+export fitParameters, fitParameters!
 include("fitting.jl")
 
 export generatePPop, subsamplePPop, nBallVolume, normalPDF, weightedSample

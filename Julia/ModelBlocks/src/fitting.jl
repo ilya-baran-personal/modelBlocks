@@ -55,7 +55,7 @@ function fitParameters(blocksWithOutputs::AbstractArray{<:AbstractBlock},
     end
 
     result = BlackBoxOptim.bboptimize(objective; SearchRange = collect(zip(lower, upper)), MaxTime = MaxTime);
-    parameterToMinimum = Dict();
+    parameterToMinimum = Dict{String, Any}();
     for i = 1:length(lower)
         parameterToMinimum[parametersAndBounds[i][1]] = BlackBoxOptim.best_candidate(result)[i];
     end
