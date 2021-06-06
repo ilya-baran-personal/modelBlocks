@@ -19,8 +19,13 @@ function fitParameters(blocksWithOutputs::AbstractArray{<:AbstractBlock},
         expectedValues = [];
         stds = [];
         for variable in output.variables
-            push!(expectedValues, outputsAndStds[variable.name][1]);
-            push!(stds, outputsAndStds[variable.name][2]);
+            if (haskey(outputsAndStds, variable.name))
+                push!(expectedValues, outputsAndStds[variable.name][1]);
+                push!(stds, outputsAndStds[variable.name][2]);
+            else
+                push!(expectedValues, 0.0);
+                push!(stds, Inf64);
+            end
         end
         push!(expectedValuesArray, expectedValues);
         push!(stdsArray, stds);
