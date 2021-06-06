@@ -311,9 +311,11 @@ function getVariables(block::BlockCombo)::Variables block.variables; end
 function getParameters(block::BlockCombo)::Variables block.parameters; end
 function setParameter!(block::BlockCombo, name::String, value)
     block.parameters[name] = value;
-    blocksAndNames = block.parameterNameToBlocksAndNames[name];
-    for blockAndName in blocksAndNames
-        setParameter!(getSubblock(block, blockAndName[1]), blockAndName[2], value);
+    if haskey(block.parameterNameToBlocksAndNames, name)
+        blocksAndNames = block.parameterNameToBlocksAndNames[name];
+        for blockAndName in blocksAndNames
+            setParameter!(getSubblock(block, blockAndName[1]), blockAndName[2], value);
+        end
     end
 end
 
