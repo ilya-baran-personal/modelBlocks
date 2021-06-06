@@ -42,8 +42,9 @@ function generatePPop(blocksWithOutputs::Vector{<:AbstractBlock},
     objective = x -> begin
         obj = 0.;
         for i in 1:length(boundBlocks)
-            setParameters!(boundBlocks[i], x);
-            outputs = computeOutputs(boundBlocks[i]);
+            blockCopy = deepcopy(boundBlocks[i]);
+            setParameters!(blockCopy, x);
+            outputs = computeOutputs(blockCopy);
             outputs = unfold(outputs.values - expectedValuesArray[i]) ./ unfold(stdsArray[i]);
             obj += sum(max.(outputs .^ 2, 1) .- 1)
         end
@@ -52,8 +53,8 @@ function generatePPop(blocksWithOutputs::Vector{<:AbstractBlock},
 
     ppop = Matrix{Float64}(undef, length(lower), count);
 
-    for i in 1:count
-        result = BlackBoxOptim.bboptimize(objective; SearchRange = collect(zip(lower, upper)), MaxTime = MaxTime / count);
+    Threads.@threads for i in 1:count
+        result = BlackBoxOptim.bboptimize(objective; SearchRange = collect(zip(lower, upper)), MaxTime = Threads.nthreads() * MaxTime / count);
         ppop[:, i] = BlackBoxOptim.best_candidate(result);
     end
     ppop;

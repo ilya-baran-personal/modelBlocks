@@ -253,7 +253,7 @@ function BlockCombo(subblocks::Vector{Tuple{String, T}},
     if (length(subblocks) < 1)
         error("Must have at least one subblock");
     end
-    extraData = getExtraData(subblocks[1][2]);
+    extraData = deepcopy(getExtraData(subblocks[1][2]));
     subblocks = deepcopy(subblocks);
     gluedParameters = Set((f[1], f[2]) for f in glueFunctions);
     

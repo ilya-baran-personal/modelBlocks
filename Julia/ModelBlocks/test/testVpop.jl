@@ -48,5 +48,5 @@ setOutputDefinition!(block, outputs, (variables, parameters, timeRange, solution
 
 @time samples = subsamplePPop(ppop, block, ["p1", "p2"], fill(0.5, 2), [[1,1] [0,1]] / 100, 2000);
 
-ppop = rand(2, 20000);
-@time samples = subsamplePPop(ppop, fill(0.5, 2), [[1,1] [0,1]] / 100, 2000);
+ppop2 = rand(2, 20000);
+@time samples = subsamplePPop(ppop2, fill(0.5, 2), [[1,1] [0,1]] / 100, 2000);
