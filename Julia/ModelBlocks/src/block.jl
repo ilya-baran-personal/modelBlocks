@@ -79,6 +79,12 @@ function runBlock(block::AbstractBlock)
     solve(problem, Rodas4P(), tstops = getDiscontinuities(block));
 end
 
+function setParameters!(block::AbstractBlock, nameToValue::AbstractDict{String, T}) where T
+    for (name, value) in nameToValue
+        setParameter!(block, name, value);
+    end
+end
+
 function solutionToVariables(solution, block::AbstractBlock, timeRange::AbstractRange)
     resultArray = Array{Array{Float64, 1}, 1}(undef, length(getVariables(block).variables));
     for index = 1:length(resultArray)
@@ -119,7 +125,7 @@ function getParameters(block::Block)::Variables block.parameters; end
 function setParameter!(block::Block, name::String, value)
     block.parameters[name] = value;
 end
-function setParameters!(block::Block, values)
+function setParameters!(block::Block, values::Vector)
     block.parameters.values = values;
 end
 
@@ -188,7 +194,7 @@ function setParameter!(block::BlockWithBindings, name::String, value)
     block.parameters[name] = value;
     setParameter!(block.subblock, name, value);
 end
-function setParameters!(block::BlockWithBindings, values)
+function setParameters!(block::BlockWithBindings, values::Vector)
     block.parameters.values = values;
     for (name, index) in block.parameters.nameToIndex
         setParameter!(block.subblock, name, block.parameters.values[index]);
@@ -319,7 +325,7 @@ function setParameter!(block::BlockCombo, name::String, value)
     end
 end
 
-function setParameters!(block::BlockCombo, values)
+function setParameters!(block::BlockCombo, values::Vector)
     block.parameters.values = values;
     
     for parameter in block.parameters.variables

@@ -3,6 +3,18 @@
 import Optim
 import BlackBoxOptim
 
+# Changes block parameters to the optimized values
+function fitParameters!(blocksWithOutputs::AbstractArray{<:AbstractBlock},
+    parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}, 1},
+    outputsAndStds::AbstractDict{String, Tuple{S, T}}; # Name to value and std.
+    kwargs...) where {S, T}
+    result = fitParameters(blocksWithOutputs, parametersAndBounds, outputsAndStds; kwargs...);
+    for block in blocksWithOutputs
+        setParameters!(block, result.parameterToMinimum);
+    end
+    return result;
+end
+
 function fitParameters(blocksWithOutputs::AbstractArray{<:AbstractBlock},
     parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}, 1},
     outputsAndStds::AbstractDict{String, Tuple{S, T}}; # Name to value and std.
@@ -43,7 +55,11 @@ function fitParameters(blocksWithOutputs::AbstractArray{<:AbstractBlock},
     end
 
     result = BlackBoxOptim.bboptimize(objective; SearchRange = collect(zip(lower, upper)), MaxTime = MaxTime);
-    return result;
+    parameterToMinimum = Dict();
+    for i = 1:length(lower)
+        parameterToMinimum[parametersAndBounds[i][1]] = BlackBoxOptim.best_candidate(result)[i];
+    end
+    return (rawResult = result, minimizer = BlackBoxOptim.best_candidate(result), parameterToMinimum = parameterToMinimum);
 end
 
 function unfold(A)
