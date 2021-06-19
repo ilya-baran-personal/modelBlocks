@@ -57,6 +57,36 @@ function generatePPop(blocksWithOutputs::Vector{<:AbstractBlock},
         result = BlackBoxOptim.bboptimize(objective; SearchRange = collect(zip(lower, upper)), MaxTime = Threads.nthreads() * MaxTime / count);
         ppop[:, i] = BlackBoxOptim.best_candidate(result);
     end
+
+    # Print results
+    outputResults = Vector(undef, count);
+    Threads.@threads for i in 1:count
+        allOutputs = "";
+        for j in 1:length(boundBlocks)
+            blockCopy = deepcopy(boundBlocks[j]);
+            setParameters!(blockCopy, ppop[:, i]);
+            outputs = computeOutputs(blockCopy);
+            blockOutputs = "";
+            for k = 1:length(expectedValuesArray[j])
+                v = outputs.values[k];
+                min = expectedValuesArray[j][k] - stdsArray[j][k];
+                max = expectedValuesArray[j][k] + stdsArray[j][k];
+                if min < v < max
+                    blockOutputs *= "   $(outputs.variables[k].name): $v in ($min, $max) \n";
+                else
+                    blockOutputs *= " * $(outputs.variables[k].name): $v OUT ($min, $max) \n";
+                end
+            end
+            allOutputs = allOutputs * blockOutputs;
+        end
+        outputResults[i] = allOutputs;
+    end
+
+    for i in 1:count
+        println("Plausible patient $i");
+        println(outputResults[i]);
+    end
+
     ppop;
 end
 
