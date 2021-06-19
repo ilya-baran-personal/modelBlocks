@@ -8,6 +8,7 @@ abstract type AbstractBlock end
 struct BlockOutputDefinition
     outputs::Variables
     computeOutputs::Function # Takes variables, parameters, time range, solution (in Variables form), and outputs, and returns outputs
+    includeRawSolution::Bool # If true, computeOutputs takes a raw solution before solution-as-Variables
 end
 
 mutable struct BlockExtraData
@@ -46,18 +47,30 @@ function getOutputDefinition(block::AbstractBlock)::BlockOutputDefinition
 end
 
 function setOutputDefinition!(block::AbstractBlock, outputs::Variables, computeOutputs::Function)
-    getExtraData(block).outputDefinition = BlockOutputDefinition(outputs, computeOutputs);
+    getExtraData(block).outputDefinition = BlockOutputDefinition(outputs, computeOutputs, false);
+end
+
+function setOutputDefinition!(block::AbstractBlock, outputs::Variables, computeOutputs::Function, includeRawSolution::Bool)
+    getExtraData(block).outputDefinition = BlockOutputDefinition(outputs, computeOutputs, includeRawSolution);
 end
 
 function renameOutputs!(block::AbstractBlock, renameFunction::Function)
     oldDef = getOutputDefinition(block);
     newOutputs = renameVariables(oldDef.outputs, renameFunction);
-    newComputeFunction = (v, p, t, s, o) -> begin
-        oldOutputs = oldDef.computeOutputs(v, p, t, s, deepcopy(oldDef.outputs));
-        o.values = oldOutputs.values;
-        return o;
-    end;
-    setOutputDefinition!(block, newOutputs, newComputeFunction);
+    if oldDef.includeRawSolution
+        newComputeFunction = (v, p, t, s, o) -> begin
+            oldOutputs = oldDef.computeOutputs(v, p, t, s, deepcopy(oldDef.outputs));
+            o.values = oldOutputs.values;
+            return o;
+        end;
+    else
+        newComputeFunction = (v, p, t, r, s, o) -> begin
+            oldOutputs = oldDef.computeOutputs(v, p, t, r, s, deepcopy(oldDef.outputs));
+            o.values = oldOutputs.values;
+            return o;
+        end;
+    end
+    setOutputDefinition!(block, newOutputs, newComputeFunction, oldDef.includeRawSolution);
 end
 
 function getDiscontinuities(block::AbstractBlock)::Vector
@@ -133,9 +146,15 @@ function computeOutputs(blockWithOutputs::AbstractBlock)
     outputDefinition = getOutputDefinition(blockWithOutputs);
     timeRange = getTimeRange(blockWithOutputs);
     solution = runBlock(blockWithOutputs);
-    return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs), timeRange,
-                                           solutionToVariables(solution, blockWithOutputs, timeRange),
-                                           deepcopy(outputDefinition.outputs));
+    if outputDefinition.includeRawSolution
+        return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs), timeRange,
+                                            solution, solutionToVariables(solution, blockWithOutputs, timeRange),
+                                            deepcopy(outputDefinition.outputs));
+    else
+        return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs), timeRange,
+                                            solutionToVariables(solution, blockWithOutputs, timeRange),
+                                            deepcopy(outputDefinition.outputs));
+    end
 end
 
 # ============================================ BlockWithBindings =======================================
@@ -216,13 +235,25 @@ function computeOutputs(blockWithOutputs::BlockWithBindings)
     outputDefinition = getExtraData(blockWithOutputs).outputDefinition;
     if (outputDefinition === nothing)
         outputDefinition = getOutputDefinition(blockWithOutputs.subblock);
-        return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs.subblock), timeRange,
-                                               solutionToVariables(solution, blockWithOutputs, timeRange),
-                                               deepcopy(outputDefinition.outputs));
+        if outputDefinition.includeRawSolution
+            return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs.subblock), timeRange,
+                                                solution, solutionToVariables(solution, blockWithOutputs, timeRange),
+                                                deepcopy(outputDefinition.outputs));
+        else
+            return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs.subblock), timeRange,
+                                                solutionToVariables(solution, blockWithOutputs, timeRange),
+                                                deepcopy(outputDefinition.outputs));
+        end
     end
-    return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs), timeRange,
+    if outputDefinition.includeRawSolution
+        return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs), timeRange,
+                                           solution, solutionToVariables(solution, blockWithOutputs, timeRange),
+                                           deepcopy(outputDefinition.outputs));
+    else
+        return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs), timeRange,
                                            solutionToVariables(solution, blockWithOutputs, timeRange),
                                            deepcopy(outputDefinition.outputs));
+    end
 end
 
 function getDiscontinuities(block::BlockWithBindings)::Vector
