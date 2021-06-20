@@ -58,14 +58,14 @@ function renameOutputs!(block::AbstractBlock, renameFunction::Function)
     oldDef = getOutputDefinition(block);
     newOutputs = renameVariables(oldDef.outputs, renameFunction);
     if oldDef.includeRawSolution
-        newComputeFunction = (v, p, t, s, o) -> begin
-            oldOutputs = oldDef.computeOutputs(v, p, t, s, deepcopy(oldDef.outputs));
+        newComputeFunction = (v, p, t, r, s, o) -> begin
+            oldOutputs = oldDef.computeOutputs(v, p, t, r, s, deepcopy(oldDef.outputs));
             o.values = oldOutputs.values;
             return o;
         end;
     else
-        newComputeFunction = (v, p, t, r, s, o) -> begin
-            oldOutputs = oldDef.computeOutputs(v, p, t, r, s, deepcopy(oldDef.outputs));
+        newComputeFunction = (v, p, t, s, o) -> begin
+            oldOutputs = oldDef.computeOutputs(v, p, t, s, deepcopy(oldDef.outputs));
             o.values = oldOutputs.values;
             return o;
         end;
