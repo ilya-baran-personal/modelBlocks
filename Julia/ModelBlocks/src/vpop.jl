@@ -82,13 +82,18 @@ function generatePPop(blocksWithOutputs::Vector{<:AbstractBlock},
     ppop;
 end
 
-# Generate plausible population with multiple block runs
+# Take a population and a set of blocks and output ranges.  Optionally filter the population to just those
+# whose outputs are in the ranges.  Generate random new patients by sampling in a normal distribution around
+# random patients and keeping those that satisfy the output constraints.  The covariance matrix is the
+# covariance matrix of the input ppop, scaled by ratio.  We generate and try count new patients (and a subset of
+# those are kept).  The return value includes the original (possibly filtered) ppop.
 function expandPPop(blocksWithOutputs::Vector{<:AbstractBlock},
                     parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}},
                     outputsAndStds::AbstractDict{String, Tuple{S, T}}, # Name to value and std.
                     ppop::Matrix{Float64},
                     ratio::Number, # What fraction of the covariance to use
-                    count::Int) where {S, T}
+                    count::Int;
+                    filter = false) where {S, T}
                     
     boundBlocks = [BlockWithBindings(block, [name for (name, lower, upper) in parametersAndBounds]) for block in blocksWithOutputs];
     lower = [lower for (_, lower, _) in parametersAndBounds];
@@ -97,6 +102,28 @@ function expandPPop(blocksWithOutputs::Vector{<:AbstractBlock},
     outputs = [computeOutputs(block) for block in blocksWithOutputs];
 
     (expectedValuesArray, stdsArray) = makeExpectedValuesAndStdsArrays(outputs, outputsAndStds);
+
+    check = function(parameters)
+        for j in 1:length(boundBlocks)
+            blockCopy = deepcopy(boundBlocks[j]);
+            setParameters!(blockCopy, parameters);
+            outputs = computeOutputs(blockCopy);
+            outputs = unfold(outputs.values - expectedValuesArray[j]) ./ unfold(stdsArray[j]);
+            if any(abs.(outputs) .> 1)
+                return false;
+            end
+        end
+        return true;
+    end
+
+    isOk = [true for i = 1:size(ppop, 2)];
+    if filter
+        Threads.@threads for i in 1:size(ppop, 2)
+            isOk[i] = check(ppop[:, i]);
+        end
+        ppop = ppop[:, isOk];
+        println("Kept $(size(ppop, 2)) patients");
+    end
 
     covariance = Statistics.cov(ppop, dims = 2);
     distribution = Distributions.MvNormal(covariance * ratio);
@@ -110,16 +137,7 @@ function expandPPop(blocksWithOutputs::Vector{<:AbstractBlock},
     isOk = [true for i = 1:count];
     
     Threads.@threads for i in 1:count
-        for j in 1:length(boundBlocks)
-            blockCopy = deepcopy(boundBlocks[j]);
-            setParameters!(blockCopy, candidates[:, i]);
-            outputs = computeOutputs(blockCopy);
-            outputs = unfold(outputs.values - expectedValuesArray[j]) ./ unfold(stdsArray[j]);
-            if any(abs.(outputs) .> 1)
-                isOk[i] = false;
-                break;
-            end
-        end
+        isOk[i] = check(candidates[:, i]);
     end
 
     for i in 1:count

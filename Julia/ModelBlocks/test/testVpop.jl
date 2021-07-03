@@ -52,7 +52,7 @@ ppop = expandPPop([block], [
 ], Dict(
     "x" => (1., 0.12),
     "y" => (0.2, 0.12)
-), ppop, 0.3, 1000);
+), ppop, 0.3, 1000; filter = true);
 
 @time samples = subsamplePPop(ppop, block, ["p1", "p2"], fill(0.5, 2), [[1,1] [0,1]] / 100, 2000);
 
