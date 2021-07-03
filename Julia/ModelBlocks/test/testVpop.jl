@@ -42,9 +42,17 @@ setOutputDefinition!(block, outputs, (variables, parameters, timeRange, solution
     ("p1", 0., 5.),
     ("p2", 0., 5.)
 ], Dict(
-    "x" => (1., 0.02),
-    "y" => (0.2, 0.02)
-), 8; MaxTime = 10);
+    "x" => (1., 0.12),
+    "y" => (0.2, 0.12)
+), 8; MaxTime = 50);
+
+ppop = expandPPop([block], [
+    ("p1", 0., 5.),
+    ("p2", 0., 5.)
+], Dict(
+    "x" => (1., 0.12),
+    "y" => (0.2, 0.12)
+), ppop, 0.3, 1000);
 
 @time samples = subsamplePPop(ppop, block, ["p1", "p2"], fill(0.5, 2), [[1,1] [0,1]] / 100, 2000);
 

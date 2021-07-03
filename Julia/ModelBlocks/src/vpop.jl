@@ -3,6 +3,8 @@
 import BlackBoxOptim
 import NearestNeighbors
 import SpecialFunctions
+import Statistics
+import Distributions
 using LinearAlgebra
 
 # Generate plausible population
@@ -26,18 +28,7 @@ function generatePPop(blocksWithOutputs::Vector{<:AbstractBlock},
 
     outputs = [computeOutputs(block) for block in blocksWithOutputs];
 
-    expectedValuesArray = [];
-    stdsArray = [];
-    for output in outputs
-        expectedValues = [];
-        stds = [];
-        for variable in output.variables
-            push!(expectedValues, outputsAndStds[variable.name][1]);
-            push!(stds, outputsAndStds[variable.name][2]);
-        end
-        push!(expectedValuesArray, expectedValues);
-        push!(stdsArray, stds);
-    end
+    (expectedValuesArray, stdsArray) = makeExpectedValuesAndStdsArrays(outputs, outputsAndStds);
 
     objective = x -> begin
         obj = 0.;
@@ -89,6 +80,71 @@ function generatePPop(blocksWithOutputs::Vector{<:AbstractBlock},
     end
 
     ppop;
+end
+
+# Generate plausible population with multiple block runs
+function expandPPop(blocksWithOutputs::Vector{<:AbstractBlock},
+                    parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}},
+                    outputsAndStds::AbstractDict{String, Tuple{S, T}}, # Name to value and std.
+                    ppop::Matrix{Float64},
+                    ratio::Number, # What fraction of the covariance to use
+                    count::Int) where {S, T}
+                    
+    boundBlocks = [BlockWithBindings(block, [name for (name, lower, upper) in parametersAndBounds]) for block in blocksWithOutputs];
+    lower = [lower for (_, lower, _) in parametersAndBounds];
+    upper = [upper for (_, _, upper) in parametersAndBounds];
+
+    outputs = [computeOutputs(block) for block in blocksWithOutputs];
+
+    (expectedValuesArray, stdsArray) = makeExpectedValuesAndStdsArrays(outputs, outputsAndStds);
+
+    covariance = Statistics.cov(ppop, dims = 2);
+    distribution = Distributions.MvNormal(covariance * ratio);
+
+    candidates = Matrix{Float64}(undef, length(lower), count);
+    for i in 1:count
+        candidates[:, i] = ppop[:, rand(1:size(ppop, 2))] + rand(distribution);
+        candidates[:, i] = max.(lower, min.(upper, candidates[:, i]));
+    end
+
+    isOk = [true for i = 1:count];
+    
+    Threads.@threads for i in 1:count
+        for j in 1:length(boundBlocks)
+            blockCopy = deepcopy(boundBlocks[j]);
+            setParameters!(blockCopy, candidates[:, i]);
+            outputs = computeOutputs(blockCopy);
+            outputs = unfold(outputs.values - expectedValuesArray[j]) ./ unfold(stdsArray[j]);
+            if any(abs.(outputs) .> 1)
+                isOk[i] = false;
+                break;
+            end
+        end
+    end
+
+    for i in 1:count
+        if isOk[i]
+            ppop = hcat(ppop, candidates[:, i]);
+        end
+    end
+
+    return ppop;
+end
+
+function makeExpectedValuesAndStdsArrays(outputs::Vector{Variables}, outputsAndStds::AbstractDict{String, Tuple{S, T}}) where {S, T}
+    expectedValuesArray = [];
+    stdsArray = [];
+    for output in outputs
+        expectedValues = [];
+        stds = [];
+        for variable in output.variables
+            push!(expectedValues, outputsAndStds[variable.name][1]);
+            push!(stds, outputsAndStds[variable.name][2]);
+        end
+        push!(expectedValuesArray, expectedValues);
+        push!(stdsArray, stds);
+    end
+    return (expectedValuesArray, stdsArray);
 end
 
 function subsamplePPop(ppop::Matrix, block::AbstractBlock, parameterNames::AbstractArray{String}, mean::Vector, covariance::Matrix, count::Integer)

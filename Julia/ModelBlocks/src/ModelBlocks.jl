@@ -1,6 +1,7 @@
 # Copyright (C) 2021 Ilya Baran.  This program is distributed under the terms of the MIT license.
 module ModelBlocks
 
+using Base: Number
 export Variable, Variables, variablesUnion, variablesSubtract, renameVariables, variablesToMatlab
 include("variables.jl")
 
@@ -18,7 +19,7 @@ include("sensitivity.jl")
 export fitParameters, fitParameters!
 include("fitting.jl")
 
-export generatePPop, subsamplePPop, nBallVolume, normalPDF, weightedSample
+export generatePPop, subsamplePPop, nBallVolume, normalPDF, weightedSample, expandPPop
 include("vpop.jl")
 
 end

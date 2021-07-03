@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [deps]
 BlackBoxOptim = "a134a8b2-14d6-55f6-9291-3336d3ab0209"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MAT = "23992714-dd62-5051-b70f-ba57cb901cac"
