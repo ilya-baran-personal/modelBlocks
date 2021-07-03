@@ -54,7 +54,8 @@ function generatePPop(blocksWithOutputs::Vector{<:AbstractBlock},
     ppop = Matrix{Float64}(undef, length(lower), count);
 
     Threads.@threads for i in 1:count
-        result = BlackBoxOptim.bboptimize(objective; SearchRange = collect(zip(lower, upper)), MaxTime = Threads.nthreads() * MaxTime / count);
+        result = BlackBoxOptim.bboptimize(objective; SearchRange = collect(zip(lower, upper)),
+                                          MaxTime = Threads.nthreads() * MaxTime / count, TargetFitness = 0.);
         ppop[:, i] = BlackBoxOptim.best_candidate(result);
     end
 
@@ -65,7 +66,7 @@ function generatePPop(blocksWithOutputs::Vector{<:AbstractBlock},
         for j in 1:length(boundBlocks)
             blockCopy = deepcopy(boundBlocks[j]);
             setParameters!(blockCopy, ppop[:, i]);
-            outputs = computeOutputs(blockCopy);
+            local outputs = computeOutputs(blockCopy);
             blockOutputs = "";
             for k = 1:length(expectedValuesArray[j])
                 v = outputs.values[k];
