@@ -82,6 +82,80 @@ function generatePPop(blocksWithOutputs::Vector{<:AbstractBlock},
     ppop;
 end
 
+# Generate plausible population with multiple block runs
+function generatePPopFarthest(blocksWithOutputs::Vector{<:AbstractBlock},
+                              parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}},
+                              outputsAndStds::AbstractDict{String, Tuple{S, T}}, # Name to value and std.
+                              count::Int;
+                              MaxTime = 1000, DistanceFactor = 1.) where {S, T}
+    boundBlocks = [BlockWithBindings(block, [name for (name, lower, upper) in parametersAndBounds]) for block in blocksWithOutputs];
+    lower = [lower for (_, lower, _) in parametersAndBounds];
+    upper = [upper for (_, _, upper) in parametersAndBounds];
+
+    outputs = [computeOutputs(block) for block in blocksWithOutputs];
+
+    (expectedValuesArray, stdsArray) = makeExpectedValuesAndStdsArrays(outputs, outputsAndStds);
+
+    metricPPopSoFar::Vector{Vector{Float64}} = [];
+    ppop = Matrix{Float64}(undef, length(lower), count);
+
+    toMetric = p -> begin
+        result = deepcopy(p);
+        for i in 1:length(p)
+            if lower[i] <= 0
+                result[i] = (p[i] - lower[i]) / (upper[i] - lower[i]);
+            else
+                result[i] = log(p[i]);
+            end
+        end
+        return result;
+    end
+
+    threads = Threads.nthreads();
+    rounds::Integer = ceil(count / threads);
+
+    objective = (x, idx) -> begin
+        obj = 0.;
+        for i in 1:length(boundBlocks)
+            blockCopy = deepcopy(boundBlocks[i]);
+            setParameters!(blockCopy, x);
+            outputs = computeOutputs(blockCopy);
+            outputs = unfold(outputs.values - expectedValuesArray[i]) ./ unfold(stdsArray[i]);
+            obj += sum(max.(outputs .^ 2, 1) .- 1);
+        end
+        if length(metricPPopSoFar) > 0
+            m = toMetric(x);
+            closest = Inf64;
+            for i in 1:length(metricPPopSoFar)
+                dist = sum((m - metricPPopSoFar[i]) .^ 2);
+                if mod(i + idx, threads) == 1
+                    dist = dist * 2;
+                end
+                closest = min(closest, dist);
+            end
+            obj -= closest * DistanceFactor;
+        end
+        return obj;
+    end
+
+    for i in 1:rounds
+        println("Starting round $i of $rounds");
+        batch::Integer = min(threads, count - (i - 1) * threads);
+        batchPpop = Matrix{Float64}(undef, length(lower), batch);
+        Threads.@threads for j in 1:batch
+            result = BlackBoxOptim.bboptimize((x) -> objective(x, j); SearchRange = collect(zip(lower, upper)),
+                                              MaxTime = MaxTime / rounds);
+            batchPpop[:, j] = BlackBoxOptim.best_candidate(result);
+        end
+        for j in 1:batch
+            push!(metricPPopSoFar, toMetric(batchPpop[:, j]));
+            ppop[:, (i - 1) * threads + j] = batchPpop[:, j];
+        end
+    end
+
+    return ppop;
+end
+
 # Take a population and a set of blocks and output ranges.  Optionally filter the population to just those
 # whose outputs are in the ranges.  Generate random new patients by sampling in a normal distribution around
 # random patients and keeping those that satisfy the output constraints.  The covariance matrix is the

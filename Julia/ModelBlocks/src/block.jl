@@ -143,18 +143,9 @@ function setParameters!(block::Block, values::Vector)
 end
 
 function computeOutputs(blockWithOutputs::AbstractBlock)
-    outputDefinition = getOutputDefinition(blockWithOutputs);
     timeRange = getTimeRange(blockWithOutputs);
     solution = runBlock(blockWithOutputs);
-    if outputDefinition.includeRawSolution
-        return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs), timeRange,
-                                            solution, solutionToVariables(solution, blockWithOutputs, timeRange),
-                                            deepcopy(outputDefinition.outputs));
-    else
-        return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs), timeRange,
-                                            solutionToVariables(solution, blockWithOutputs, timeRange),
-                                            deepcopy(outputDefinition.outputs));
-    end
+    return computeOutputsFromSolution(blockWithOutputs, timeRange, solution);
 end
 
 # ============================================ BlockWithBindings =======================================
@@ -228,32 +219,35 @@ function computeDerivatives(block::BlockWithBindings, t::Number, x::Vector)::Vec
     return computeDerivatives(block.subblock, t, x);
 end
 
+function computeOutputsFromSolution(block::AbstractBlock, timeRange, solution)
+    outputDefinition = getOutputDefinition(block)
+    if outputDefinition.includeRawSolution
+        return outputDefinition.computeOutputs(getVariables(block), getParameters(block), timeRange,
+                                            solution, solutionToVariables(solution, block, timeRange),
+                                            deepcopy(outputDefinition.outputs));
+    else
+        return outputDefinition.computeOutputs(getVariables(block), getParameters(block), timeRange,
+                                            solutionToVariables(solution, block, timeRange),
+                                            deepcopy(outputDefinition.outputs));
+    end
+end
+
+function recursiveComputeOutputs(block::AbstractBlock, timeRange, solution)
+    computeOutputsFromSolution(block, timeRange, solution);
+end
+
+function recursiveComputeOutputs(block::BlockWithBindings, timeRange, solution)
+    outputDefinition = getExtraData(block).outputDefinition;
+    if (outputDefinition === nothing)
+        return recursiveComputeOutputs(block.subblock, timeRange, solution);
+    end
+    computeOutputsFromSolution(block, timeRange, solution);
+end
+
 function computeOutputs(blockWithOutputs::BlockWithBindings)
     timeRange = getTimeRange(blockWithOutputs);
     solution = runBlock(blockWithOutputs);
-
-    outputDefinition = getExtraData(blockWithOutputs).outputDefinition;
-    if (outputDefinition === nothing)
-        outputDefinition = getOutputDefinition(blockWithOutputs.subblock);
-        if outputDefinition.includeRawSolution
-            return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs.subblock), timeRange,
-                                                solution, solutionToVariables(solution, blockWithOutputs, timeRange),
-                                                deepcopy(outputDefinition.outputs));
-        else
-            return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs.subblock), timeRange,
-                                                solutionToVariables(solution, blockWithOutputs, timeRange),
-                                                deepcopy(outputDefinition.outputs));
-        end
-    end
-    if outputDefinition.includeRawSolution
-        return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs), timeRange,
-                                           solution, solutionToVariables(solution, blockWithOutputs, timeRange),
-                                           deepcopy(outputDefinition.outputs));
-    else
-        return outputDefinition.computeOutputs(getVariables(blockWithOutputs), getParameters(blockWithOutputs), timeRange,
-                                           solutionToVariables(solution, blockWithOutputs, timeRange),
-                                           deepcopy(outputDefinition.outputs));
-    end
+    recursiveComputeOutputs(blockWithOutputs, timeRange, solution);
 end
 
 function getDiscontinuities(block::BlockWithBindings)::Vector
