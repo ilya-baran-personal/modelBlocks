@@ -5,6 +5,8 @@ using Test
 using LinearAlgebra
 using Plots
 
+#plotly();
+
 variables = Variables([
     Variable("X", 1, (-100, 100), "", ""),
     Variable("Y", 1, (-100, 100), "", ""),
@@ -31,7 +33,7 @@ outputs = Variables([
 ]);
 
 setOutputDefinition!(block, outputs, (variables, parameters, timeRange, solution, outputs) -> begin
-        outputs.o1 = solution.X[end] ^ 2 + solution.Y[end] ^ 2;
+        outputs.o1 = cos(4 * sqrt(solution.X[end] ^ 2 + solution.Y[end] ^ 2));
         outputs.o2 = 0;
         return outputs;
     end);
@@ -40,14 +42,19 @@ setOutputDefinition!(block, outputs, (variables, parameters, timeRange, solution
     ("x", -2., 2.),
     ("y", -2., 2.)
 ], Dict(
-    "o1" => (0., 1.),
-    "o2" => (0., 1.)
-), 100; MaxTime = 120, DistanceFactor = 1.);
+    "o1" => (0.5, 0.5),
+    "o2" => (0.5, 0.5)
+), 100; MaxTime = 120, DistanceFactor = 0.01);
 
-Plots.plot(ppop[1,:], ppop[2,:], seriestype = :scatter)
+plt = plot(ppop[1,:], ppop[2,:], seriestype = :scatter, legend = false, aspect_ratio = :equal, size = (600, 600));
+plot!(pi/8*cos.(0:0.1:(2*pi+0.1)), pi/8*sin.(0:0.1:(2*pi+0.1)));
+plot!(3*pi/8*cos.(0:0.1:(2*pi+0.1)), 3*pi/8*sin.(0:0.1:(2*pi+0.1)));
+plot!(5*pi/8*cos.(0:0.1:(2*pi+0.1)), 5*pi/8*sin.(0:0.1:(2*pi+0.1)));
+plot!(max.(-2., min.(2., 7*pi/8*cos.(0:0.01:(2*pi+0.1)))), max.(-2., min.(2., 7*pi/8*sin.(0:0.01:(2*pi+0.1)))));
+display(plt);
 
-squareSums = ones(size(ppop, 2), 1) * sum(ppop .^ 2, dims=1);
-distances = squareSums + squareSums' - 2 * ppop' * ppop;
-distances = reshape(distances, 1, :)[:];
+# squareSums = ones(size(ppop, 2), 1) * sum(ppop .^ 2, dims=1);
+# distances = squareSums + squareSums' - 2 * ppop' * ppop;
+# distances = reshape(distances, 1, :)[:];
 
-Plots.histogram(log.(distances[distances .> 1e-5]), xlims=(-8, 2), ylims=(0,1000))
+# histogram(log.(distances[distances .> 1e-5]), xlims=(-8, 2), ylims=(0,1000))
