@@ -84,21 +84,45 @@ println("Land model force transient Test defined");
 @time outputs = computeOutputs(block)
 
 # Part 2: generate PPop
+rangeMin = [120., 0.5];
+rangeMax = [160., 1.5];
 
-println("Generate PPops");
-@time ppop = generatePPopFarthest([block], [
+
+println("Generate PPops using Farthest Point optimization");
+@time ppopFarthest = generatePPopFarthest([block], [
     # parameters range
-    ("Tref", 120., 160.),
-    ("CaT50", 0.5, 1.5)
+    ("Tref", rangeMin[1], rangeMax[1]),
+    ("CaT50", rangeMin[2], rangeMax[2])
 ], Dict(
-    # All outputs ranges for PPs presented as (MEAN, STD)
+   # All outputs ranges for PPs presented as (MEAN, STD)
     "f_act_vel" => (50, 50),
     "f_relax_vel" => (50, 50),
     "time_to_70perForce" => (50, 50),
-    "f_act_vel_norm" =>  (0.1, 0.09),
+    "f_act_vel_norm" =>  (0.1, 0.04),
     "f_relax_vel_norm" => (0.02, 0.01),
 ), 100; MaxTime = 120, DistanceFactor = 0.1); # num of pts, total max time for all PPs generation, distance to nearest existing pt is weighted relative to staying wihtin the output bounds
 # ideally, would want at least 30s per pt, may need to add multithreading
+
+plt = plot(ppopFarthest[1,:], ppopFarthest[2,:], seriestype = :scatter, legend = false, aspect_ratio = :equal, size = (600, 600));
+
+# log plot
+plt = plot(log.(ppopFarthest[1,:]), log.(ppopFarthest[2,:]), seriestype = :scatter, legend = false, aspect_ratio = :equal, size = (600, 600));
+display(plt);
+
+
+println("Generate PPops");
+
+@time ppop = generatePPop(block, [
+    ("Tref", rangeMin[1], rangeMax[1]),
+    ("CaT50", rangeMin[2], rangeMax[2])
+], Dict(
+   # All outputs ranges for PPs presented as (MEAN, STD)
+   "f_act_vel" => (50, 50),
+   "f_relax_vel" => (50, 50),
+   "time_to_70perForce" => (50, 50),
+   "f_act_vel_norm" =>  (0.1, 0.04),
+   "f_relax_vel_norm" => (0.02, 0.01),
+), 100; MaxTime = 120);
 
 plt = plot(ppop[1,:], ppop[2,:], seriestype = :scatter, legend = false, aspect_ratio = :equal, size = (600, 600));
 
@@ -106,3 +130,29 @@ plt = plot(ppop[1,:], ppop[2,:], seriestype = :scatter, legend = false, aspect_r
 plt = plot(log.(ppop[1,:]), log.(ppop[2,:]), seriestype = :scatter, legend = false, aspect_ratio = :equal, size = (600, 600));
 display(plt);
 
+
+
+# plot volume-growth curve
+radii = (0:0.01:0.5) / 8;
+areas = zeros(length(radii));
+areasFarthest = zeros(length(radii));
+samples = 1000; 
+
+n = size(ppop)[2];
+logMin = log.(rangeMin);
+logMax = log.(rangeMax);
+
+for i = 1:samples
+    s = rand(2) .* (logMax - logMin) + logMin;
+# Check outputs here
+    d = sum((log.(ppop) - repeat(s, 1, n)) .^ 2, dims = 1);
+    closest = sqrt(minimum(d));
+    areas[radii .> closest] .+= 1 / samples;
+
+    d = sum((log.(ppopFarthest) - repeat(s, 1, n)) .^ 2, dims = 1);
+    closest = sqrt(minimum(d));
+    areasFarthest[radii .> closest] .+= 1 / samples;
+end
+
+plt = plot(radii, hcat(areas, areasFarthest), legend = false);
+display(plt);

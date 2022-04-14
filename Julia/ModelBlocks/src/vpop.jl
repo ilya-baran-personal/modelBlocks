@@ -111,7 +111,7 @@ function generatePPopFarthest(blocksWithOutputs::Vector{<:AbstractBlock},
         return result;
     end
 
-    threads = Threads.nthreads();
+    threads = 1;#Threads.nthreads();
     rounds::Integer = ceil(count / threads);
 
     objective = (x, idx) -> begin

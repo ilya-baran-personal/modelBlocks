@@ -8,8 +8,8 @@ using Interpolations
 println("Land model force transient Test starting");
 
 variables = Variables([
-    Variable("TRPN", 0.0752, (0, 100), "kg", ""),
-    Variable("XB", 0.00046, (0, 100), "kg", ""),
+    Variable("TRPN", 0.0752, (0, 100), "units", ""),
+    Variable("XB", 0.00046, (0, 100), "units", ""),
 ]);
 
 parameters = Variables([

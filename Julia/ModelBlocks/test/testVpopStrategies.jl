@@ -44,7 +44,7 @@ setOutputDefinition!(block, outputs, (variables, parameters, timeRange, solution
 ], Dict(
     "o1" => (0.5, 0.5),
     "o2" => (0.5, 0.5)
-), 100; MaxTime = 120, DistanceFactor = 0.01);
+), 100; MaxTime = 120, DistanceFactor = 0.5);
 
 plt = plot(ppop[1,:], ppop[2,:], seriestype = :scatter, legend = false, aspect_ratio = :equal, size = (600, 600));
 plot!(pi/8*cos.(0:0.1:(2*pi+0.1)), pi/8*sin.(0:0.1:(2*pi+0.1)));
@@ -58,3 +58,22 @@ display(plt);
 # distances = reshape(distances, 1, :)[:];
 
 # histogram(log.(distances[distances .> 1e-5]), xlims=(-8, 2), ylims=(0,1000))
+
+
+# plot volume-growth curve
+radii = 0:0.01:0.5;
+areas = zeros(length(radii));
+samples = 100000; # if checking outputs, you'll need fewer samples
+
+n = size(ppop)[2];
+
+for i = 1:samples
+    s = rand(2) * 4 .- 2; # The 4 and -2 should become range widths and minima
+# Check outputs here
+    d = sum((ppop - repeat(s, 1, n)) .^ 2, dims = 1);
+    closest = sqrt(minimum(d));
+    areas[radii .> closest] .+= 4 / samples;
+end
+
+plt = plot(radii, areas, legend = false);
+display(plt);
