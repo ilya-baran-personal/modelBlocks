@@ -87,7 +87,7 @@ function generatePPopFarthest(blocksWithOutputs::Vector{<:AbstractBlock},
                               parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}},
                               outputsAndStds::AbstractDict{String, Tuple{S, T}}, # Name to value and std.
                               count::Int;
-                              MaxTime = 1000, DistanceFactor = 1.) where {S, T}
+                              MaxTime = 1000, DistanceFactor = 1., threads = 0) where {S, T}
     boundBlocks = [BlockWithBindings(block, [name for (name, lower, upper) in parametersAndBounds]) for block in blocksWithOutputs];
     lower = [lower for (_, lower, _) in parametersAndBounds];
     upper = [upper for (_, _, upper) in parametersAndBounds];
@@ -111,7 +111,9 @@ function generatePPopFarthest(blocksWithOutputs::Vector{<:AbstractBlock},
         return result;
     end
 
-    threads = 1;#Threads.nthreads();
+    if threads == 0
+        threads = Threads.nthreads();
+    end
     rounds::Integer = ceil(count / threads);
 
     objective = (x, idx) -> begin
@@ -154,6 +156,58 @@ function generatePPopFarthest(blocksWithOutputs::Vector{<:AbstractBlock},
     end
 
     return ppop;
+end
+
+function computeDistanceCurve(blocksWithOutputs::Vector{<:AbstractBlock},
+                              parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}},
+                              outputsAndStds::AbstractDict{String, Tuple{S, T}}, # Name to value and std.
+                              ppop::Matrix{Float64},
+                              maxDistance::Float64;
+                              samples = 1000) where {S, T}
+    boundBlocks = [BlockWithBindings(block, [name for (name, lower, upper) in parametersAndBounds]) for block in blocksWithOutputs];
+    lower = [lower for (_, lower, _) in parametersAndBounds];
+    upper = [upper for (_, _, upper) in parametersAndBounds];
+
+    outputs = [computeOutputs(block) for block in blocksWithOutputs];
+
+    (expectedValuesArray, stdsArray) = makeExpectedValuesAndStdsArrays(outputs, outputsAndStds);
+
+    radii = 0:(maxDistance / 500):maxDistance;
+    result = zeros(length(radii));
+    
+    n = size(ppop)[2];
+    logMin = log.(lower);
+    logMax = log.(upper);
+
+    successful = 0;
+    lk = ReentrantLock();
+    
+    Threads.@threads for i = 1:samples
+        sample = rand(size(ppop)[1]) .* (logMax - logMin) + logMin;
+        # Check outputs
+        ok = true;
+        for i in 1:length(boundBlocks)
+            blockCopy = deepcopy(boundBlocks[i]);
+            setParameters!(blockCopy, exp.(sample));
+            outputs = computeOutputs(blockCopy);
+            outputs = unfold(outputs.values - expectedValuesArray[i]) ./ unfold(stdsArray[i]);
+            if any(abs.(outputs) .> 1)
+                ok = false;
+            end
+        end
+        if !ok
+            continue
+        end
+
+        distance = sum((log.(ppop) - repeat(sample, 1, n)) .^ 2, dims = 1);
+        closest = sqrt(minimum(distance));
+        lock(lk) do 
+            result[radii .> closest] .+= 1;
+            successful += 1;
+        end
+    end
+
+    return (radii, result / successful);
 end
 
 # Take a population and a set of blocks and output ranges.  Optionally filter the population to just those

@@ -20,7 +20,7 @@ include("sensitivity.jl")
 export fitParameters, fitParameters!
 include("fitting.jl")
 
-export generatePPop, subsamplePPop, nBallVolume, normalPDF, weightedSample, expandPPop, generatePPopFarthest
+export generatePPop, subsamplePPop, nBallVolume, normalPDF, weightedSample, expandPPop, generatePPopFarthest, computeDistanceCurve
 include("vpop.jl")
 
 end
