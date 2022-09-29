@@ -106,10 +106,10 @@ println("Generate PPops using Farthest Point optimization");
                                           MaxTime = 120, DistanceFactor = 0.1, threads = 1); # num of pts, total max time for all PPs generation, distance to nearest existing pt is weighted relative to staying wihtin the output bounds
 # ideally, would want at least 30s per pt, may need to add multithreading
 
-plt = plot(ppopFarthest[1,:], ppopFarthest[2,:], seriestype = :scatter, legend = false, aspect_ratio = :equal, size = (600, 600));
+plt = plot(ppopFarthest[1,:], ppopFarthest[2,:], seriestype = :scatter, legend = false, size = (600, 600));
 
 # log plot
-plt = plot(log.(ppopFarthest[1,:]), log.(ppopFarthest[2,:]), seriestype = :scatter, legend = false, aspect_ratio = :equal, size = (600, 600));
+#plt = plot(log.(ppopFarthest[1,:]), log.(ppopFarthest[2,:]), seriestype = :scatter, legend = false, aspect_ratio = :equal, size = (600, 600));
 display(plt);
 
 
@@ -117,14 +117,14 @@ println("Generate PPops");
 
 @time ppop = generatePPop(block, parameterBounds, outputBounds, 100; MaxTime = 120);
 
-plt = plot(ppop[1,:], ppop[2,:], seriestype = :scatter, legend = false, aspect_ratio = :equal, size = (600, 600));
+plt = plot(ppop[1,:], ppop[2,:], seriestype = :scatter, legend = false, size = (600, 600));
 
 # log plot
-plt = plot(log.(ppop[1,:]), log.(ppop[2,:]), seriestype = :scatter, legend = false, aspect_ratio = :equal, size = (600, 600));
+#plt = plot(log.(ppop[1,:]), log.(ppop[2,:]), seriestype = :scatter, legend = false, aspect_ratio = :equal, size = (600, 600));
 display(plt);
 
-(radii, areas) = computeDistanceCurve([block], parameterBounds, outputBounds, ppop, 0.05; samples = 3000);
-(radii, areasFarthest) = computeDistanceCurve([block], parameterBounds, outputBounds, ppopFarthest, 0.05; samples = 3000);
+(radii, areas) = computeDistanceCurve([block], parameterBounds, outputBounds, ppop, .05; samples = 30000);
+(radii, areasFarthest) = computeDistanceCurve([block], parameterBounds, outputBounds, ppopFarthest, .05; samples = 30000);
 
-plt = plot(radii, hcat(areas, areasFarthest), legend = false);
+plt = plot(radii, hcat(areas, areasFarthest), legend = true);
 display(plt);

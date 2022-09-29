@@ -102,7 +102,7 @@ function generatePPopFarthest(blocksWithOutputs::Vector{<:AbstractBlock},
     toMetric = p -> begin
         result = deepcopy(p);
         for i in 1:length(p)
-            if lower[i] <= 0
+            if lower[i] <= 0 || true
                 result[i] = (p[i] - lower[i]) / (upper[i] - lower[i]);
             else
                 result[i] = log(p[i]);
@@ -138,9 +138,9 @@ function generatePPopFarthest(blocksWithOutputs::Vector{<:AbstractBlock},
             closest = min(closest, dist);
         end
 
-        # We also want to penalize the distance to the boundary -- but half as much
+        # We also want to penalize the distance to the boundary -- but one quarter as much
         diff = min.(m - l, u - m);
-        toBoundary = 4 * minimum(diff) ^ 2;
+        toBoundary = 16 * minimum(diff) ^ 2;
         if any(diff .< sqrt(closest) / 2)
             closest = min(closest, toBoundary);
         end
@@ -180,7 +180,7 @@ function computeDistanceCurve(blocksWithOutputs::Vector{<:AbstractBlock},
     toMetric = p -> begin
         out = deepcopy(p);
         for i in 1:length(p)
-            if lower[i] <= 0
+            if lower[i] <= 0 || true
                 out[i] = (p[i] - lower[i]) / (upper[i] - lower[i]);
             else
                 out[i] = log(p[i]);
@@ -200,20 +200,21 @@ function computeDistanceCurve(blocksWithOutputs::Vector{<:AbstractBlock},
     n = size(ppop)[2];
     logMin = toMetric(lower);
     logMax = toMetric(upper);
+    ppopMetric = deepcopy(ppop);
     for i = 1:size(ppop, 2)
-        ppop[:, i] = toMetric(ppop[:, i]);
+        ppopMetric[:, i] = toMetric(ppop[:, i]);
     end
 
     successful = 0;
     lk = ReentrantLock();
     
     Threads.@threads for i = 1:samples
-        sample = rand(size(ppop)[1]) .* (logMax - logMin) + logMin;
+        sample = rand(size(ppopMetric)[1]) .* (logMax - logMin) + logMin;
         # Check outputs
         ok = true;
         for i in 1:length(boundBlocks)
             blockCopy = deepcopy(boundBlocks[i]);
-            setParameters!(blockCopy, exp.(sample));
+            setParameters!(blockCopy, sample .* (upper - lower) + lower); # invert toMetric
             outputs = computeOutputs(blockCopy);
             outputs = unfold(outputs.values - expectedValuesArray[i]) ./ unfold(stdsArray[i]);
             if any(abs.(outputs) .> 1)
@@ -224,7 +225,7 @@ function computeDistanceCurve(blocksWithOutputs::Vector{<:AbstractBlock},
             continue
         end
 
-        distance = sum((ppop - repeat(sample, 1, n)) .^ 2, dims = 1);
+        distance = sum((ppopMetric - repeat(sample, 1, n)) .^ 2, dims = 1);
         closest = sqrt(minimum(distance));
         lock(lk) do 
             result[radii .> closest] .+= 1;

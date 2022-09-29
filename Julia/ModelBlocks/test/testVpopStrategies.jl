@@ -15,17 +15,20 @@ variables = Variables([
 parameters = Variables([
     Variable("x", 0.25, (-2, 2), "", ""),
     Variable("y", 0.375, (-2, 2), "", ""),
+    Variable("z", 0.375, (-2, 2), "", ""),
+    Variable("w", 0.375, (-2, 2), "", ""),
+    Variable("q", 0.375, (-2, 2), "", ""),
 ]);
 
 reactions = [
-    GeneralReaction("Sines", (dvdt, t, v, p, e) -> begin
-        dvdt.X += (p.x - v.X);
-        dvdt.Y += (p.y - v.Y);
-    end),
+    # GeneralReaction("Sines", (dvdt, t, v, p, e) -> begin
+    #     dvdt.X += (p.x - v.X);
+    #     dvdt.Y += (p.y - v.Y);
+    # end),
 ];
 
 block = Block(variables, parameters, reactions);
-setTimeRange!(block, 0:10);
+setTimeRange!(block, 0:0);
 
 outputs = Variables([
     Variable("o1", 0.0, (0, 100), "?", ""),
@@ -33,47 +36,40 @@ outputs = Variables([
 ]);
 
 setOutputDefinition!(block, outputs, (variables, parameters, timeRange, solution, outputs) -> begin
-        outputs.o1 = cos(4 * sqrt(solution.X[end] ^ 2 + solution.Y[end] ^ 2));
-        outputs.o2 = 0;
+        outputs.o1 = 0.5;#cos(4 * sqrt(solution.X[end] ^ 2 + solution.Y[end] ^ 2));
+        outputs.o2 = 0.5;
         return outputs;
     end);
 
-@time ppop = generatePPopFarthest([block], [
-    ("x", -2., 2.),
-    ("y", -2., 2.)
-], Dict(
+parameterBounds =  [
+    ("x", 1., 2.),
+    ("y", 1., 2.),
+    ("z", 1., 2.),
+    ("w", 1., 2.),
+    ("q", 1., 2.),
+];
+
+outputBounds = Dict(
     "o1" => (0.5, 0.5),
     "o2" => (0.5, 0.5)
-), 100; MaxTime = 120, DistanceFactor = 0.5);
+);
 
-plt = plot(ppop[1,:], ppop[2,:], seriestype = :scatter, legend = false, aspect_ratio = :equal, size = (600, 600));
-plot!(pi/8*cos.(0:0.1:(2*pi+0.1)), pi/8*sin.(0:0.1:(2*pi+0.1)));
-plot!(3*pi/8*cos.(0:0.1:(2*pi+0.1)), 3*pi/8*sin.(0:0.1:(2*pi+0.1)));
-plot!(5*pi/8*cos.(0:0.1:(2*pi+0.1)), 5*pi/8*sin.(0:0.1:(2*pi+0.1)));
-plot!(max.(-2., min.(2., 7*pi/8*cos.(0:0.01:(2*pi+0.1)))), max.(-2., min.(2., 7*pi/8*sin.(0:0.01:(2*pi+0.1)))));
+@time ppopFarthest = generatePPopFarthest([block], parameterBounds, outputBounds, 1000; MaxTime = 120, DistanceFactor = 0.5, threads = 1);
+@time ppop = generatePPop(block, parameterBounds, outputBounds, 1000; MaxTime = 120);
+
+plt = plot(ppopFarthest[1,:], ppopFarthest[2,:], seriestype = :scatter, legend = false, aspect_ratio = :equal, size = (600, 600));
+# plot!(pi/8*cos.(0:0.1:(2*pi+0.1)), pi/8*sin.(0:0.1:(2*pi+0.1)));
+# plot!(3*pi/8*cos.(0:0.1:(2*pi+0.1)), 3*pi/8*sin.(0:0.1:(2*pi+0.1)));
+# plot!(5*pi/8*cos.(0:0.1:(2*pi+0.1)), 5*pi/8*sin.(0:0.1:(2*pi+0.1)));
+# plot!(max.(-2., min.(2., 7*pi/8*cos.(0:0.01:(2*pi+0.1)))), max.(-2., min.(2., 7*pi/8*sin.(0:0.01:(2*pi+0.1)))));
 display(plt);
 
-# squareSums = ones(size(ppop, 2), 1) * sum(ppop .^ 2, dims=1);
-# distances = squareSums + squareSums' - 2 * ppop' * ppop;
-# distances = reshape(distances, 1, :)[:];
-
-# histogram(log.(distances[distances .> 1e-5]), xlims=(-8, 2), ylims=(0,1000))
-
+# Add corners: 
+# for i in 1:2 for j in 1:2 for k in 1:2 for q in 1:2 for r in 1:2 ppopFarthest = hcat(ppopFarthest, [i;j;k;q;r]) end end end end end
 
 # plot volume-growth curve
-radii = 0:0.01:0.5;
-areas = zeros(length(radii));
-samples = 100000; # if checking outputs, you'll need fewer samples
+(radii, areas) = computeDistanceCurve([block], parameterBounds, outputBounds, ppop, 0.3; samples = 30000);
+(radii, areasFarthest) = computeDistanceCurve([block], parameterBounds, outputBounds, ppopFarthest, 0.3; samples = 30000);
 
-n = size(ppop)[2];
-
-for i = 1:samples
-    s = rand(2) * 4 .- 2; # The 4 and -2 should become range widths and minima
-# Check outputs here
-    d = sum((ppop - repeat(s, 1, n)) .^ 2, dims = 1);
-    closest = sqrt(minimum(d));
-    areas[radii .> closest] .+= 4 / samples;
-end
-
-plt = plot(radii, areas, legend = false);
+plt = plot(radii, hcat(areas, areasFarthest));
 display(plt);
