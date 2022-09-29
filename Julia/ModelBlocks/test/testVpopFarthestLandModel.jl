@@ -123,8 +123,8 @@ plt = plot(ppop[1,:], ppop[2,:], seriestype = :scatter, legend = false, size = (
 #plt = plot(log.(ppop[1,:]), log.(ppop[2,:]), seriestype = :scatter, legend = false, aspect_ratio = :equal, size = (600, 600));
 display(plt);
 
-(radii, areas) = computeDistanceCurve([block], parameterBounds, outputBounds, ppop, .05; samples = 30000);
-(radii, areasFarthest) = computeDistanceCurve([block], parameterBounds, outputBounds, ppopFarthest, .05; samples = 30000);
+(radii, areas) = computeDistanceCurve([block], parameterBounds, outputBounds, ppop, .1; samples = 10000);
+(radii, areasFarthest) = computeDistanceCurve([block], parameterBounds, outputBounds, ppopFarthest, .1; samples = 10000);
 
 plt = plot(radii, hcat(areas, areasFarthest), legend = true);
 display(plt);

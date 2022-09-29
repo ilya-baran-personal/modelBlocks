@@ -5,6 +5,7 @@ import NearestNeighbors
 import SpecialFunctions
 import Statistics
 import Distributions
+import Optim
 using LinearAlgebra
 
 # Generate plausible population
@@ -45,9 +46,13 @@ function generatePPop(blocksWithOutputs::Vector{<:AbstractBlock},
     ppop = Matrix{Float64}(undef, length(lower), count);
 
     Threads.@threads for i in 1:count
-        result = BlackBoxOptim.bboptimize(objective; SearchRange = collect(zip(lower, upper)),
-                                          MaxTime = Threads.nthreads() * MaxTime / count, TargetFitness = 0.);
-        ppop[:, i] = BlackBoxOptim.best_candidate(result);
+        guess = rand(size(lower)[1]) .* (upper - lower) + lower;
+        result = Optim.optimize(objective, lower, upper, guess, Optim.SAMIN(),
+                                Optim.Options(time_limit = Threads.nthreads() * MaxTime / count));
+        ppop[:, i] = Optim.minimizer(result);
+        # result = BlackBoxOptim.bboptimize(objective; SearchRange = collect(zip(lower, upper)),
+        #                                   MaxTime = Threads.nthreads() * MaxTime / count, TargetFitness = 0.);
+        # ppop[:, i] = BlackBoxOptim.best_candidate(result);
     end
 
     # Print results
@@ -87,7 +92,7 @@ function generatePPopFarthest(blocksWithOutputs::Vector{<:AbstractBlock},
                               parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}},
                               outputsAndStds::AbstractDict{String, Tuple{S, T}}, # Name to value and std.
                               count::Int;
-                              MaxTime = 1000, DistanceFactor = 1., threads = 0) where {S, T}
+                              MaxTime = 1000, DistanceFactor = 1., threads = 0, perturb = true) where {S, T}
     boundBlocks = [BlockWithBindings(block, [name for (name, lower, upper) in parametersAndBounds]) for block in blocksWithOutputs];
     lower = [lower for (_, lower, _) in parametersAndBounds];
     upper = [upper for (_, _, upper) in parametersAndBounds];
@@ -132,7 +137,7 @@ function generatePPopFarthest(blocksWithOutputs::Vector{<:AbstractBlock},
 
         for i in 1:length(metricPPopSoFar)
             dist = sum((m - metricPPopSoFar[i]) .^ 2);
-            if mod(i + idx, threads) == 1
+            if perturb && mod(i + idx, threads) == 1
                 dist = dist * 2;
             end
             closest = min(closest, dist);
