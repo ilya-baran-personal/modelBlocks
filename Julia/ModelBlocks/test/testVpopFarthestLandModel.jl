@@ -126,5 +126,8 @@ display(plt);
 (radii, areas) = computeDistanceCurve([block], parameterBounds, outputBounds, ppop, .1; samples = 10000);
 (radii, areasFarthest) = computeDistanceCurve([block], parameterBounds, outputBounds, ppopFarthest, .1; samples = 10000);
 
-plt = plot(radii, hcat(areas, areasFarthest), legend = true);
+plt = plot(radii, hcat(areas, areasFarthest), legend = true, label = ["SA" "FP"]);
 display(plt);
+
+# Print the integral of the difference
+display((sum(areasFarthest) - sum(areas)) * (radii[2] - radii[1]));

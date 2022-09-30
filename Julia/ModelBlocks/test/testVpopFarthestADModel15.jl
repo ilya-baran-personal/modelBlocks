@@ -170,7 +170,9 @@ plot(solution)
 outputs = Variables([
     Variable("Th2_out", 0.5931, (0, 100 * 0.5931), "a.u.", "1"),
     Variable("path_out", 0.4069, (0, 100 * 0.4069), "a.u.", "2"),
-    Variable("Th1_out", 3.1, (0, 100 * 3.1), "pg/mL", "3"),
+    Variable("Th1_out", 3.1, (0, 100 * 3.1), "cells/uL", "3"),
+    Variable("IL13_out", 40, (0, 100 * 40), "pg/mL", "4"),
+    Variable("IL4_out", 35, (0, 100 * 40), "pg/mL", "5"),
 ])
 
 setOutputDefinition!(block, outputs, (variables, parameters, timeRange, solution, outputs) -> begin
@@ -178,6 +180,8 @@ setOutputDefinition!(block, outputs, (variables, parameters, timeRange, solution
     outputs.Th1_out = solution.Th1[end]
     outputs.Th2_out = solution.Th2[end]
     outputs.path_out = solution.path[end]
+    outputs.IL13_out = solution.IL13[end]
+    outputs.IL4_out = solution.IL4[end]
 
     return outputs
 end)
@@ -210,6 +214,16 @@ extraParameters = Variables([
     Variable("logK5", 1.0, (0, 100), "kg/s", ""),
     Variable("logK6", 1.0, (0, 100), "kg/s", ""),
     Variable("logK11", 1.0, (0, 100), "kg/s", ""),
+    Variable("logK12", 1.0, (0, 100), "kg/s", ""),
+    Variable("logK13", 1.0, (0, 100), "kg/s", ""),
+    Variable("logK14", 1.0, (0, 100), "kg/s", ""),
+    Variable("logK15", 1.0, (0, 100), "kg/s", ""),
+    Variable("logK17", 1.0, (0, 100), "kg/s", ""),
+    Variable("logK18", 1.0, (0, 100), "kg/s", ""),
+    Variable("logK19", 1.0, (0, 100), "kg/s", ""),
+    Variable("logK20", 1.0, (0, 100), "kg/s", ""),
+    Variable("logK21", 1.0, (0, 100), "kg/s", ""),
+    Variable("logK22", 1.0, (0, 100), "kg/s", ""),
 ]);
 
 block = BlockCombo(
@@ -220,37 +234,58 @@ block = BlockCombo(
         ("first", "k5", (t, v, p) -> exp(p.logK5)),
         ("first", "k6", (t, v, p) -> exp(p.logK6)),
         ("first", "k11", (t, v, p) -> exp(p.logK11)),
+        ("first", "k12", (t, v, p) -> exp(p.logK12)),
+        ("first", "k13", (t, v, p) -> exp(p.logK13)),
+        ("first", "k14", (t, v, p) -> exp(p.logK14)),
+        ("first", "k15", (t, v, p) -> exp(p.logK15)),
+        ("first", "k17", (t, v, p) -> exp(p.logK17)),
+        ("first", "k18", (t, v, p) -> exp(p.logK18)),
+        ("first", "k19", (t, v, p) -> exp(p.logK19)),
+        ("first", "k20", (t, v, p) -> exp(p.logK20)),
+        ("first", "k21", (t, v, p) -> exp(p.logK21)),
+        ("first", "k22", (t, v, p) -> exp(p.logK22)),
     ],
     extraParameters
 );
 
 # For the case of varying 5 parameters
- # Part 2: generate PPop
-rangeMin = [x[1, 1] / 10, x[19, 1] / 10, x[20, 1] / 10, x[24, 1] / 10, x[28, 1] / 10];
-rangeMax = [x[1, 1] * 10, x[19, 1] * 10, x[20, 1] * 10, x[24, 1] * 10,x[28, 1] * 10];
-
-# Move to logarithm space
-rangeMin = log.(rangeMin);
-rangeMax = log.(rangeMax);
+# Part 2: generate PPop
+indices = [1, 19, 20, 24, 28, 29, 31, 32, 34, 37, 38, 40, 41, 43, 44];
+ 
+rangeMin = [log(x[idx, 1] / 10) for idx in indices];
+rangeMax = [log(x[idx, 1] * 10) for idx in indices];
 
 parameterBounds = [
     ("logK1", rangeMin[1], rangeMax[1]),
     ("logD8", rangeMin[2], rangeMax[2]),
     ("logK5", rangeMin[3], rangeMax[3]),
     ("logK6", rangeMin[4], rangeMax[4]),
-    ("logK11", rangeMin[5], rangeMax[5]),];
+    ("logK11", rangeMin[5], rangeMax[5]),
+    ("logK12", rangeMin[6], rangeMax[6]),
+    ("logK13", rangeMin[7], rangeMax[7]),
+    ("logK14", rangeMin[8], rangeMax[8]),
+    ("logK15", rangeMin[9], rangeMax[9]),
+    ("logK17", rangeMin[10], rangeMax[10]),
+    ("logK18", rangeMin[11], rangeMax[11]),
+    ("logK19", rangeMin[12], rangeMax[12]),
+    ("logK20", rangeMin[13], rangeMax[13]),
+    ("logK21", rangeMin[14], rangeMax[14]),
+    ("logK22", rangeMin[15], rangeMax[15]),
+    ];
 
 outputBounds = Dict(
     # All outputs ranges for PPs presented as (MEAN, STD)
-    "Th2_out" => (0.5, 10.0),
+    "Th2_out" => (0.5, 1.0),
     "path_out" => (0.1, 1.0),
-    "Th1_out" => (0.5, 10.0)
+    "Th1_out" => (0.5, 5.0),
+    "IL4_out" => (25, 50),
+    "IL13_out" => (35, 60)
 );
 
 
 println("Generate PPops");
 
-@time ppop = generatePPop(block, parameterBounds, outputBounds, 100; MaxTime = 120);
+@time ppop = generatePPop(block, parameterBounds, outputBounds, 1000; MaxTime = 1000);
 
 plt = plot(ppop[1,:], ppop[2,:], seriestype = :scatter, legend = false, size = (600, 600),title = "non-farthest point");
 
@@ -259,8 +294,8 @@ plt = plot(ppop[1,:], ppop[2,:], seriestype = :scatter, legend = false, size = (
 display(plt);
 
 println("Generate PPops using Farthest Point optimization");
-@time ppopFarthest = generatePPopFarthest([block], parameterBounds, outputBounds, 100;
-                                          MaxTime = 120, DistanceFactor = 0.1, threads = 1); # num of pts, total max time for all PPs generation, distance to nearest existing pt is weighted relative to staying wihtin the output bounds
+@time ppopFarthest = generatePPopFarthest([block], parameterBounds, outputBounds, 1000;
+                                          MaxTime = 1000, DistanceFactor = 0.1, threads = 1); # num of pts, total max time for all PPs generation, distance to nearest existing pt is weighted relative to staying wihtin the output bounds
 # ideally, would want at least 30s per pt, may need to add multithreading
 
 plt = plot(ppopFarthest[1,:], ppopFarthest[2,:], seriestype = :scatter, legend = false, size = (600, 600),title = "Farthest point");
@@ -271,11 +306,11 @@ display(plt);
 
 
 # Growth volume curve plotting
-(radii, areas) = computeDistanceCurve([block], parameterBounds, outputBounds, ppop, 1.0; samples = 3000);
-(radii, areasFarthest) = computeDistanceCurve([block], parameterBounds, outputBounds, ppopFarthest, 1.0; samples = 3000);
+(radii, areas) = computeDistanceCurve([block], parameterBounds, outputBounds, ppop, 1.2; samples = 10000);
+(radii, areasFarthest) = computeDistanceCurve([block], parameterBounds, outputBounds, ppopFarthest, 1.2; samples = 10000);
 
-plt = plot(radii, hcat(areas, areasFarthest), legend = false,title = "increased to 6.0");
-display(plt);
+#plt = plot(radii, hcat(areas, areasFarthest), legend = false,title = "increased to 6.0");
+#display(plt);
 
 
 plt = plot(radii, hcat(areas, areasFarthest), label =["SA" "FP"]);#, title = "CDF or Volume-Growth curves: AD model- 5 params");
