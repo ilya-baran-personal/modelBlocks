@@ -21,6 +21,7 @@ export fitParameters, fitParameters!
 include("fitting.jl")
 
 export generatePPop, subsamplePPop, nBallVolume, normalPDF, weightedSample, expandPPop, generatePPopFarthest, computeDistanceCurve
+export SimulatedAnnealing, BlackBox, LatinHypercube
 include("vpop.jl")
 
 end

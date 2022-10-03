@@ -6,6 +6,7 @@ import SpecialFunctions
 import Statistics
 import Distributions
 import Optim
+import LatinHypercubeSampling
 using LinearAlgebra
 
 # Generate plausible population
@@ -17,12 +18,16 @@ function generatePPop(blockWithOutputs::AbstractBlock,
     generatePPop([blockWithOutputs], parametersAndBounds, outputsAndStds, count; kwargs...)
 end
 
+@enum PpopMethod SimulatedAnnealing=1 BlackBox=2 LatinHypercube=3
+
 # Generate plausible population with multiple block runs
 function generatePPop(blocksWithOutputs::Vector{<:AbstractBlock},
                       parametersAndBounds::AbstractArray{Tuple{String, Float64, Float64}},
                       outputsAndStds::AbstractDict{String, Tuple{S, T}}, # Name to value and std.
                       count::Int;
-                      MaxTime = 1000) where {S, T}
+                      MaxTime = 1000,
+                      method::PpopMethod = SimulatedAnnealing,
+                      factor::Float64 = 3.) where {S, T}
     boundBlocks = [BlockWithBindings(block, [name for (name, lower, upper) in parametersAndBounds]) for block in blocksWithOutputs];
     lower = [lower for (_, lower, _) in parametersAndBounds];
     upper = [upper for (_, _, upper) in parametersAndBounds];
@@ -44,15 +49,37 @@ function generatePPop(blocksWithOutputs::Vector{<:AbstractBlock},
     end
 
     ppop = Matrix{Float64}(undef, length(lower), count);
+    local latinH::Matrix{Float64};
+    if method == LatinHypercube
+        lhcSize = Int64(ceil(count * factor));
+        plan, _ = LatinHypercubeSampling.LHCoptim(lhcSize, length(lower), lhcSize * length(lower) * 20)
+        latinH = transpose(LatinHypercubeSampling.scaleLHC(plan, [x for x in zip(lower, upper)]))
 
-    Threads.@threads for i in 1:count
-        guess = rand(size(lower)[1]) .* (upper - lower) + lower;
-        result = Optim.optimize(objective, lower, upper, guess, Optim.SAMIN(),
-                                Optim.Options(time_limit = Threads.nthreads() * MaxTime / count));
-        ppop[:, i] = Optim.minimizer(result);
-        # result = BlackBoxOptim.bboptimize(objective; SearchRange = collect(zip(lower, upper)),
-        #                                   MaxTime = Threads.nthreads() * MaxTime / count, TargetFitness = 0.);
-        # ppop[:, i] = BlackBoxOptim.best_candidate(result);
+        ppopCount = 0;
+        for i in 1:size(latinH, 2)
+            obj = objective(latinH[:, i]);
+            if (obj < 1e-8)
+                ppopCount += 1;
+                ppop[:, ppopCount] = latinH[:, i];
+                if ppopCount == count
+                    break;
+                end
+            end
+            println("i = $i ppopCount = $ppopCount obj = $obj");
+        end        
+    end    
+
+    Threads.@threads for i in 1:size(ppop, 2)
+        if method == SimulatedAnnealing
+            guess = rand(size(lower)[1]) .* (upper - lower) + lower;
+            result = Optim.optimize(objective, lower, upper, guess, Optim.SAMIN(),
+                                    Optim.Options(time_limit = Threads.nthreads() * MaxTime / count));
+            ppop[:, i] = Optim.minimizer(result);
+        elseif method == BlackBox
+            result = BlackBoxOptim.bboptimize(objective; SearchRange = collect(zip(lower, upper)),
+                                            MaxTime = Threads.nthreads() * MaxTime / count, TargetFitness = 0.);
+            ppop[:, i] = BlackBoxOptim.best_candidate(result);
+        end
     end
 
     # Print results
@@ -102,24 +129,29 @@ function generatePPopFarthest(blocksWithOutputs::Vector{<:AbstractBlock},
     (expectedValuesArray, stdsArray) = makeExpectedValuesAndStdsArrays(outputs, outputsAndStds);
 
     metricPPopSoFar::Vector{Vector{Float64}} = [];
-    ppop = Matrix{Float64}(undef, length(lower), count);
+    ppop::Matrix{Float64} = Matrix{Float64}(undef, length(lower), 1);
 
     toMetric = p -> begin
-        result = deepcopy(p);
-        for i in 1:length(p)
-            if lower[i] <= 0 || true
-                result[i] = (p[i] - lower[i]) / (upper[i] - lower[i]);
-            else
-                result[i] = log(p[i]);
-            end
-        end
-        return result;
+        return (p - lower) ./ (upper - lower);
     end
 
     if threads == 0
         threads = Threads.nthreads();
     end
-    rounds::Integer = ceil(count / threads);
+
+    findClosest = (m, idx) -> begin
+        closest = 10 * length(lower);
+
+        for i in 1:length(metricPPopSoFar)
+            dist = sum((m - metricPPopSoFar[i]) .^ 2);
+            if perturb && mod(i + idx, threads) == 1
+                dist = dist * 2;
+            end
+            closest = min(closest, dist);
+        end
+
+        return closest;
+    end
 
     objective = (x, idx) -> begin
         obj = 0.;
@@ -133,15 +165,8 @@ function generatePPopFarthest(blocksWithOutputs::Vector{<:AbstractBlock},
         l = toMetric(lower);
         u = toMetric(upper);
         m = toMetric(x);
-        closest = minimum(u - l) ^ 2;
 
-        for i in 1:length(metricPPopSoFar)
-            dist = sum((m - metricPPopSoFar[i]) .^ 2);
-            if perturb && mod(i + idx, threads) == 1
-                dist = dist * 2;
-            end
-            closest = min(closest, dist);
-        end
+        closest = findClosest(m, idx);
 
         # We also want to penalize the distance to the boundary -- but one quarter as much
         diff = min.(m - l, u - m);
@@ -154,19 +179,34 @@ function generatePPopFarthest(blocksWithOutputs::Vector{<:AbstractBlock},
         return obj;
     end
 
-    for i in 1:rounds
-        println("Starting round $i of $rounds");
-        batch::Integer = min(threads, count - (i - 1) * threads);
+    i = 1;
+    while size(ppop, 2) < count
+        batch::Integer = threads; #min(threads, count - (i - 1) * threads);
         batchPpop = Matrix{Float64}(undef, length(lower), batch);
+        minDistance = Vector{Float64}(undef, batch);
         Threads.@threads for j in 1:batch
             result = BlackBoxOptim.bboptimize((x) -> objective(x, j); SearchRange = collect(zip(lower, upper)),
-                                              MaxTime = MaxTime / rounds);
+                                              MaxTime = MaxTime / ceil(count / threads), TraceMode = :silent);
             batchPpop[:, j] = BlackBoxOptim.best_candidate(result);
+            minDistance[j] = findClosest(toMetric(batchPpop[:, j]), j);
         end
-        for j in 1:batch
-            push!(metricPPopSoFar, toMetric(batchPpop[:, j]));
-            ppop[:, (i - 1) * threads + j] = batchPpop[:, j];
+        sizeBefore = size(ppop, 2);
+        for j in 1:batch            
+            newMinDistance = (j == 1) ? minDistance[j] : findClosest(toMetric(batchPpop[:, j]), j);
+            if newMinDistance >= minDistance[j] - 1e-5 # if we didn't get worse by adding previous points in the batch
+                push!(metricPPopSoFar, toMetric(batchPpop[:, j]));
+                if i == 1 && j == 1
+                    ppop[:, 1] = batchPpop[:, j];
+                else
+                    ppop = hcat(ppop, batchPpop[:, j])
+                end
+            end
+            if (size(ppop, 2) >= count)
+                break;
+            end
         end
+        println("Added $(size(ppop, 2) - sizeBefore) in batch $i");
+        i += 1;
     end
 
     return ppop;
