@@ -83,9 +83,16 @@ function generatePPop(blocksWithOutputs::Vector{<:AbstractBlock},
     end
 
     # Print results
+    return printAndFilterResults(ppop, boundBlocks, expectedValuesArray, stdsArray);
+end
+
+function printAndFilterResults(ppop, boundBlocks, expectedValuesArray, stdsArray)
+    count = size(ppop, 2);
     outputResults = Vector(undef, count);
+    inRangeResults = Vector{Bool}(undef, count);
     Threads.@threads for i in 1:count
         allOutputs = "";
+        local allInRange = true;
         for j in 1:length(boundBlocks)
             blockCopy = deepcopy(boundBlocks[j]);
             setParameters!(blockCopy, ppop[:, i]);
@@ -99,11 +106,13 @@ function generatePPop(blocksWithOutputs::Vector{<:AbstractBlock},
                     blockOutputs *= "   $(outputs.variables[k].name): $v in ($min, $max) \n";
                 else
                     blockOutputs *= " * $(outputs.variables[k].name): $v OUT ($min, $max) \n";
+                    allInRange = false;
                 end
             end
-            allOutputs = allOutputs * blockOutputs;
+            allOutputs = allOutputs * blockOutputs;            
         end
         outputResults[i] = allOutputs;
+        inRangeResults[i] = allInRange;
     end
 
     for i in 1:count
@@ -111,7 +120,7 @@ function generatePPop(blocksWithOutputs::Vector{<:AbstractBlock},
         println(outputResults[i]);
     end
 
-    ppop;
+    return ppop[:, inRangeResults];
 end
 
 # Generate plausible population with multiple block runs
@@ -209,7 +218,7 @@ function generatePPopFarthest(blocksWithOutputs::Vector{<:AbstractBlock},
         i += 1;
     end
 
-    return ppop;
+    return printAndFilterResults(ppop, boundBlocks, expectedValuesArray, stdsArray);
 end
 
 function computeDistanceCurve(blocksWithOutputs::Vector{<:AbstractBlock},

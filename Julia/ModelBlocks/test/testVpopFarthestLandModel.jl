@@ -14,8 +14,8 @@ println("Land model force transient Test starting");
 #include("testLandForceTransient.jl");
 # OR
 variables = Variables([
-    Variable("TRPN", 0.0752, (0, 100), "kg", ""),
-    Variable("XB", 0.00046, (0, 100), "kg", ""),
+    Variable("TRPN", 0.0752, (0, 100), "", ""),
+    Variable("XB", 0.00046, (0, 100), "", ""),
 ]);
 
 parameters = Variables([
@@ -115,7 +115,7 @@ display(plt);
 
 println("Generate PPops");
 
-@time ppop = generatePPop(block, parameterBounds, outputBounds, 100; MaxTime = 120);
+@time ppop = generatePPop(block, parameterBounds, outputBounds, 200; MaxTime = 240);
 
 plt = plot(ppop[1,:], ppop[2,:], seriestype = :scatter, legend = false, size = (600, 600));
 
@@ -126,8 +126,15 @@ display(plt);
 (radii, areas) = computeDistanceCurve([block], parameterBounds, outputBounds, ppop, .1; samples = 10000);
 (radii, areasFarthest) = computeDistanceCurve([block], parameterBounds, outputBounds, ppopFarthest, .1; samples = 10000);
 
-plt = plot(radii, hcat(areas, areasFarthest), legend = true, label = ["SA" "FP"]);
+plt = plot(radii, hcat(areas, areasFarthest), legend = false, label = ["SA" "FP"]);
+plt = plot(plt, thickness_scaling=2, tickfontsize=10/2, labelfontsize=14/2, colorbar_tickfontsize=8/2, reuse=false);
 display(plt);
 
 # Print the integral of the difference
 display((sum(areasFarthest) - sum(areas)) * (radii[2] - radii[1]));
+
+
+# for i in 120:180
+#     (radii, areas) = computeDistanceCurve([block], parameterBounds, outputBounds, ppop[:,1:i], 0.15; samples = 3000);
+#     println("i = $i diff = $(sum(areasFarthest) - sum(areas))");
+# end

@@ -285,7 +285,7 @@ outputBounds = Dict(
 
 println("Generate PPops");
 
-@time ppop = generatePPop(block, parameterBounds, outputBounds, 1000; MaxTime = 1000);
+@time ppop = generatePPop(block, parameterBounds, outputBounds, 500; MaxTime = 500);
 
 plt = plot(ppop[1,:], ppop[2,:], seriestype = :scatter, legend = false, size = (600, 600),title = "non-farthest point");
 
@@ -294,8 +294,8 @@ plt = plot(ppop[1,:], ppop[2,:], seriestype = :scatter, legend = false, size = (
 display(plt);
 
 println("Generate PPops using Farthest Point optimization");
-@time ppopFarthest = generatePPopFarthest([block], parameterBounds, outputBounds, 1000;
-                                          MaxTime = 1000, DistanceFactor = 0.1, threads = 1); # num of pts, total max time for all PPs generation, distance to nearest existing pt is weighted relative to staying wihtin the output bounds
+@time ppopFarthest = generatePPopFarthest([block], parameterBounds, outputBounds, 500;
+                                          MaxTime = 500, DistanceFactor = 0.1, threads = 1); # num of pts, total max time for all PPs generation, distance to nearest existing pt is weighted relative to staying wihtin the output bounds
 # ideally, would want at least 30s per pt, may need to add multithreading
 
 plt = plot(ppopFarthest[1,:], ppopFarthest[2,:], seriestype = :scatter, legend = false, size = (600, 600),title = "Farthest point");
@@ -314,6 +314,7 @@ display(plt);
 
 
 plt = plot(radii, hcat(areas, areasFarthest), label =["SA" "FP"]);#, title = "CDF or Volume-Growth curves: AD model- 5 params");
+plt = plot(plt, thickness_scaling=2, tickfontsize=10/2, labelfontsize=14/2, colorbar_tickfontsize=8/2, reuse=false);
 display(plt);
 
 # Print the integral of the difference

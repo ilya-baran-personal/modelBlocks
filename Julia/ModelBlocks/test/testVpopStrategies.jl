@@ -61,12 +61,13 @@ outputBounds = Dict(
 @time ppopFarthestMT = generatePPopFarthest([block], parameterBounds, outputBounds, 100; MaxTime = 30, DistanceFactor = 0.5, threads = 4);
 @time ppopFarthestMTNoPerturb = generatePPopFarthest([block], parameterBounds, outputBounds, 100; MaxTime = 30, DistanceFactor = 0.5, threads = 4, perturb = false);
 
-for pts in (ppopFarthest, ppop, ppopFarthestMTNoPerturb, ppopFarthestMT)
+for pts in (ppopFarthest, ppop)
     plt = plot(pts[1,:], pts[2,:], seriestype = :scatter, legend = false, aspect_ratio = :equal, size = (600, 600));
     plot!(pi/(2*r)*cos.(0:0.1:(2*pi+0.1)), pi/(2*r)*sin.(0:0.1:(2*pi+0.1)));
     plot!(3*pi/(2*r)*cos.(0:0.1:(2*pi+0.1)), 3*pi/(2*r)*sin.(0:0.1:(2*pi+0.1)));
     plot!(5*pi/(2*r)*cos.(0:0.1:(2*pi+0.1)), 5*pi/(2*r)*sin.(0:0.1:(2*pi+0.1)));
     plot!(max.(-2., min.(2., 7*pi/(2*r)*cos.(0:0.01:(2*pi+0.1)))), max.(-2., min.(2., 7*pi/(2*r)*sin.(0:0.01:(2*pi+0.1)))));
+    plt = plot(plt, thickness_scaling=2, tickfontsize=10/2, labelfontsize=14/2, colorbar_tickfontsize=8/2, reuse=false);
     display(plt);
 end
 
@@ -74,10 +75,16 @@ end
 # for i in 1:2 for j in 1:2 for k in 1:2 for q in 1:2 for r in 1:2 ppopFarthest = hcat(ppopFarthest, [i;j;k;q;r]) end end end end end
 
 # plot volume-growth curve
-(radii, areas) = computeDistanceCurve([block], parameterBounds, outputBounds, ppop, 0.15; samples = 10000);
-(radii, areasFarthest) = computeDistanceCurve([block], parameterBounds, outputBounds, ppopFarthest, 0.15; samples = 10000);
+(radii, areas) = computeDistanceCurve([block], parameterBounds, outputBounds, ppop, 0.15; samples = 1000);
+(radii, areasFarthest) = computeDistanceCurve([block], parameterBounds, outputBounds, ppopFarthest, 0.15; samples = 1000);
 (radii, areasFarthestMT) = computeDistanceCurve([block], parameterBounds, outputBounds, ppopFarthestMT, 0.15; samples = 10000);
 (radii, areasFarthestMTNoPerturb) = computeDistanceCurve([block], parameterBounds, outputBounds, ppopFarthestMTNoPerturb, 0.15; samples = 10000);
 
-plt = plot(radii, hcat(areas, areasFarthest, areasFarthestMTNoPerturb, areasFarthestMT), label = ["SA" "FP" "FP MT NP" "FP MT"]);
+plt = plot(radii, hcat(areas, areasFarthest), label = ["SA" "FP"]);
+plt = plot(plt, thickness_scaling=2, tickfontsize=10/2, labelfontsize=14/2, colorbar_tickfontsize=8/2, reuse=false);
 display(plt);
+
+# for i in 130:180
+#     (radii, areas) = computeDistanceCurve([block], parameterBounds, outputBounds, ppop[:,1:i], 0.15; samples = 3000);
+#     println("i = $i diff = $(sum(areasFarthest) - sum(areas))");
+# end

@@ -250,7 +250,7 @@ outputBounds = Dict(
 
 println("Generate PPops");
 
-@time ppop = generatePPop(block, parameterBounds, outputBounds, 100; MaxTime = 120);
+@time ppop = generatePPop(block, parameterBounds, outputBounds, 300; MaxTime = 360);
 
 plt = plot(ppop[1,:], ppop[2,:], seriestype = :scatter, legend = false, size = (600, 600),title = "non-farthest point");
 
@@ -274,12 +274,14 @@ display(plt);
 (radii, areas) = computeDistanceCurve([block], parameterBounds, outputBounds, ppop, 1.0; samples = 3000);
 (radii, areasFarthest) = computeDistanceCurve([block], parameterBounds, outputBounds, ppopFarthest, 1.0; samples = 3000);
 
-plt = plot(radii, hcat(areas, areasFarthest), legend = false,title = "increased to 6.0");
-display(plt);
-
-
-plt = plot(radii, hcat(areas, areasFarthest), label =["SA" "FP"]);#, title = "CDF or Volume-Growth curves: AD model- 5 params");
+plt = plot(radii, hcat(areas, areasFarthest), label =["SA" "FP"], legend = false);#, title = "CDF or Volume-Growth curves: AD model- 5 params");
+plt = plot(plt, thickness_scaling=2, tickfontsize=10/2, labelfontsize=14/2, colorbar_tickfontsize=8/2, reuse=false);
 display(plt);
 
 # Print the integral of the difference
 display((sum(areasFarthest) - sum(areas)) * (radii[2] - radii[1]));
+
+# for i in 120:300
+#     (radii, areas) = computeDistanceCurve([block], parameterBounds, outputBounds, ppop[:,1:i], 1.0; samples = 300);
+#     println("i = $i diff = $(sum(areasFarthest) - sum(areas))");
+# end
