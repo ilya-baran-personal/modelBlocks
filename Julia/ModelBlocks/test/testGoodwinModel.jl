@@ -22,7 +22,11 @@ using Test
 using Plots
 using Interpolations
 
-println("Goodwin model Test starting");
+println("
+    ===============
+    Goodwin model Test is starting
+    
+    ");
 
 variables = Variables([
     Variable("xn", 100, (0, 500), "", ""),
@@ -59,7 +63,35 @@ setTimeRange!(block, 0:1:100);
 @time solution = runBlock(block)
 
 
-println("Goodwin model ODEs solved. Solution (hopefully) plotted");
+println("
+    ===============
+    Goodwin model ODEs solved and solutions are plotted
+
+");
 display(plot(solution))
+
+
+
+function isOscillatory(solution)::Bool
+    local m = hcat(solution.u...);
+    local numOscillatory = 0;
+    for v in 1:size(m, 1)
+        local f = m[v,:];
+        local thresh = maximum(f) * 0.9 + minimum(f) * 0.1;
+        # count how many times f crosses the threshold
+        local count = sum(f[1:end-1] .< thresh .&& f[2:end] .>= thresh);
+        numOscillatory += (count >= 3 ? 1 : 0);
+    end
+    return numOscillatory > 1;
+end
+
+
+println("
+    ===============
+    Goodwin model - check if solution is oscillatory
+
+");
+
+display(isOscillatory(solution))
 
 
