@@ -144,97 +144,108 @@ display(isOscillatory(solution))
  
  ");
 
-@time ppop = generatePPop(block, parameterBounds, outputBounds, 40; MaxTime = 60);
+tries = 30
+let resultsPpop = Array{Int32}(undef, tries), resultsFpop = Array{Int32}(undef, tries)
+    for idx in 1:tries
+        @time ppop = generatePPop(block, parameterBounds, outputBounds, 40; MaxTime = 120);
 
-plt = plot(ppop[1,:], ppop[2,:], seriestype = :scatter, legend = false, size = (600, 600));
+        plt = plot(ppop[1,:], ppop[2,:], seriestype = :scatter, legend = false, size = (600, 600));
 
-display(plt);
+        display(plt);
 
-# Identify how many PPs are non-Oscillatory
-let n_notOscillatory = 0.0;
-    for i = 1:1:size(ppop,2)
-        parameters.pparam = ppop[1,i];
-        parameters.kdyc = ppop[2,i];
-        block = Block(variables, parameters, reactions);
-        setTimeRange!(block, 0:1:100);
-        @time solution = runBlock(block);
-        
-        println("
-        ======
-        Solution shows oscillatory behavior
-        ");
-        display(isOscillatory(solution))
-        # calculate how many non-oscillatory solutions
-        if isOscillatory(solution) == 0
-            n_notOscillatory = n_notOscillatory + 1.0
-        end
-        
+        # Identify how many PPs are non-Oscillatory
+        let n_notOscillatory = 0.0;
+            for i = 1:1:size(ppop,2)
+                parameters.pparam = ppop[1,i];
+                parameters.kdyc = ppop[2,i];
+                block = Block(variables, parameters, reactions);
+                setTimeRange!(block, 0:1:100);
+                @time solution = runBlock(block);
+                
+                println("
+                ======
+                Solution shows oscillatory behavior
+                ");
+                display(isOscillatory(solution))
+                # calculate how many non-oscillatory solutions
+                if isOscillatory(solution) == 0
+                    n_notOscillatory = n_notOscillatory + 1.0
+                end
+                
+            end
+            display(n_notOscillatory)
+            resultsPpop[idx] = n_notOscillatory;
+
+
+            # Generate PPop using FPO
+            println("
+                ======
+                Generate PPops using FPO - Farthest Point Otimization");
+            @time ppopFarthest = generatePPopFarthest([block], parameterBounds, outputBounds, 40;
+                                                    MaxTime = 120, DistanceFactor = 0.1, threads = 1); # num of pts, total max time for all PPs generation, distance to nearest existing pt is weighted relative to staying wihtin the output bounds
+            # ideally, would want at least 30s per pt, may need to add multithreading
+
+            plt = plot(ppopFarthest[1,:], ppopFarthest[2,:], seriestype = :scatter, legend = false, size = (600, 600));
+
+            display(plt);
+
+            # check how many solutions are non-oscillatory
+            # Identify how many PPs are non-Oscillatory
+            n_notOscillatory = 0.0;
+            for i = 1:1:size(ppopFarthest,2)
+                parameters.pparam = ppopFarthest[1,i];
+                parameters.kdyc = ppopFarthest[2,i];
+                block = Block(variables, parameters, reactions);
+                setTimeRange!(block, 0:1:100);
+                @time solution = runBlock(block);
+                
+                println("
+                ======
+                Solution shows oscillatory behavior
+                ");
+                display(isOscillatory(solution)) 
+                # calculate how many non-oscillatory solutions
+                if isOscillatory(solution) == 0
+                    n_notOscillatory = n_notOscillatory + 1.0
+                end
+            end;
+            display(n_notOscillatory)
+            resultsFpop[idx] = n_notOscillatory;
+        end;
+
+        println("Regular:");
+        display(resultsPpop');
+        println("Farthest point:");
+        display(resultsFpop');
     end
-    display(n_notOscillatory)
-
-
-
-    # Generate PPop using FPO
-    println("
-        ======
-        Generate PPops using FPO - Farthest Point Otimization");
-    @time ppopFarthest = generatePPopFarthest([block], parameterBounds, outputBounds, 40;
-                                            MaxTime = 60, DistanceFactor = 0.1, threads = 1); # num of pts, total max time for all PPs generation, distance to nearest existing pt is weighted relative to staying wihtin the output bounds
-    # ideally, would want at least 30s per pt, may need to add multithreading
-
-    plt = plot(ppopFarthest[1,:], ppopFarthest[2,:], seriestype = :scatter, legend = false, size = (600, 600));
-
-    display(plt);
-
-    # check how many solutions are non-oscillatory
-    # Identify how many PPs are non-Oscillatory
-    n_notOscillatory = 0.0;
-    for i = 1:1:size(ppop,2)
-        parameters.pparam = ppopFarthest[1,i];
-        parameters.kdyc = ppopFarthest[2,i];
-        block = Block(variables, parameters, reactions);
-        setTimeRange!(block, 0:1:100);
-        @time solution = runBlock(block);
-        
-        println("
-        ======
-        Solution shows oscillatory behavior
-        ");
-        display(isOscillatory(solution)) 
-        # calculate how many non-oscillatory solutions
-        if isOscillatory(solution) ==0
-            n_notOscillatory = n_notOscillatory + 1.0
-        end
-    end;
-    display(n_notOscillatory)
 end;
 
 # # Compute CDF 
-println(" 
-    ======
-    compute CDF
-    ");
+# println(" 
+#     ======
+#     compute CDF
+#     ");
 
-(radii, areas) = computeDistanceCurve([block], parameterBounds, outputBounds, ppop, 1.0; samples = 500);
-#plt = plot(radii, hcat(areas), legend = false, label = ["SA"]);
+# (radii, areas) = computeDistanceCurve([block], parameterBounds, outputBounds, ppop, 1.0; samples = 500);
+# #plt = plot(radii, hcat(areas), legend = false, label = ["SA"]);
 
-(radii, areasFarthest) = computeDistanceCurve([block], parameterBounds, outputBounds, ppopFarthest, 1.0; samples = 500);
+# (radii, areasFarthest) = computeDistanceCurve([block], parameterBounds, outputBounds, ppopFarthest, 1.0; samples = 500);
 
-println(" 
-    ======
-    plot CDF
-    ");
+# println(" 
+#     ======
+#     plot CDF
+#     ");
 
 
-plt = plot(radii, hcat(areas, areasFarthest), legend = false, label = ["SA" "FPO"]);
-plt = plot(plt, thickness_scaling=2, tickfontsize=10/2, labelfontsize=14/2, colorbar_tickfontsize=8/2, reuse=false);
-display(plt);
+# plt = plot(radii, hcat(areas, areasFarthest), legend = false, label = ["SA" "FPO"]);
+# plt = plot(plt, thickness_scaling=2, tickfontsize=10/2, labelfontsize=14/2, colorbar_tickfontsize=8/2, reuse=false);
+# display(plt);
 
-# # Print the integral of the difference
-display((sum(areasFarthest) - sum(areas)) * (radii[2] - radii[1]));
+# # # Print the integral of the difference
+# display((sum(areasFarthest) - sum(areas)) * (radii[2] - radii[1]));
 
-println(" 
-    ======
-    Done
-    ");
+# println(" 
+#     ======
+#     Done
+#     ");
     
